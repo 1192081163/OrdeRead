@@ -31,3 +31,25 @@ export type UpdateInfo = {
   assetName: string;
   assetUrl: string;
 };
+
+export const IPC_CHANNELS = {
+  loadSettings: "settings:load",
+  saveSettings: "settings:save",
+  scanOrders: "orders:scan",
+  checkUpdates: "updates:check",
+  downloadUpdate: "updates:download",
+  installUpdate: "updates:install",
+} as const;
+
+export type ScanOrdersRequest = {
+  fullScan: boolean;
+};
+
+export type RendererApi = {
+  loadSettings(): Promise<AppSettings>;
+  saveSettings(settings: AppSettings): Promise<void>;
+  scanOrders(options: ScanOrdersRequest): Promise<ScanResult>;
+  checkUpdates(): Promise<UpdateInfo | null>;
+  downloadUpdate(update: UpdateInfo): Promise<string>;
+  installUpdate(path: string): Promise<void>;
+};

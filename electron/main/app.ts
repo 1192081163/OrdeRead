@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { app, BrowserWindow } from "electron";
 
+import { registerIpcHandlers } from "./ipc.js";
+
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 function createWindow(): void {
@@ -27,6 +29,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerIpcHandlers();
   createWindow();
 
   app.on("activate", () => {
