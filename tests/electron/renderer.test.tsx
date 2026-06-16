@@ -61,28 +61,35 @@ describe("Electron renderer", () => {
     await waitFor(() => expect(api.scanOrders).toHaveBeenLastCalledWith({ fullScan: false }));
   });
 
-  it("filters rendered rows by order number and email sent date range", async () => {
+  it("filters rendered rows by order number, sent date preset, and deadline preset", async () => {
     vi.mocked(api.loadSettings).mockResolvedValue({ email: "saved@example.com", authCode: "secret" });
     vi.mocked(api.scanOrders).mockResolvedValue({
       rows: [
         {
-          orderNumber: "SENT-THIS-WEEK",
-          deadline: "2026-07-10",
+          orderNumber: "TODAY-SENT-TODAY-DUE",
+          deadline: "2026-06-16",
           sourceFile: "",
           messageSubject: "",
           messageDate: "2026-06-16T09:00:00.000Z",
         },
         {
-          orderNumber: "SENT-NEXT-WEEK",
+          orderNumber: "TODAY-SENT-FUTURE-DUE",
+          deadline: "2026-06-18",
+          sourceFile: "",
+          messageSubject: "",
+          messageDate: "2026-06-16T10:00:00.000Z",
+        },
+        {
+          orderNumber: "YESTERDAY-SENT-TODAY-DUE",
           deadline: "2026-06-16",
           sourceFile: "",
           messageSubject: "",
-          messageDate: "2026-06-22T09:00:00.000Z",
+          messageDate: "2026-06-15T09:00:00.000Z",
         },
       ],
       warnings: [],
-      scannedMessages: 2,
-      parsedAttachments: 2,
+      scannedMessages: 3,
+      parsedAttachments: 3,
       scanMode: "full",
     });
 
@@ -90,14 +97,15 @@ describe("Electron renderer", () => {
     await screen.findByText("saved@example.com");
 
     fireEvent.click(screen.getByRole("button", { name: "扫描全部邮件" }));
-    await screen.findByText("SENT-THIS-WEEK");
+    await screen.findByText("TODAY-SENT-TODAY-DUE");
 
-    fireEvent.change(screen.getByLabelText("开始日期"), { target: { value: "2026-06-15" } });
-    fireEvent.change(screen.getByLabelText("结束日期"), { target: { value: "2026-06-21" } });
-    fireEvent.change(screen.getByLabelText("订单号"), { target: { value: "this" } });
+    fireEvent.change(screen.getByLabelText("发送时间"), { target: { value: "today" } });
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "today" } });
+    fireEvent.change(screen.getByLabelText("订单号"), { target: { value: "today" } });
 
-    expect(screen.getByText("SENT-THIS-WEEK")).toBeInTheDocument();
-    expect(screen.queryByText("SENT-NEXT-WEEK")).not.toBeInTheDocument();
+    expect(screen.getByText("TODAY-SENT-TODAY-DUE")).toBeInTheDocument();
+    expect(screen.queryByText("TODAY-SENT-FUTURE-DUE")).not.toBeInTheDocument();
+    expect(screen.queryByText("YESTERDAY-SENT-TODAY-DUE")).not.toBeInTheDocument();
   });
 
   it("opens settings for editing and collapses them after save", async () => {

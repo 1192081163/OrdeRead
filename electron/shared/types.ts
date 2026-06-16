@@ -19,10 +19,18 @@ export type AppSettings = {
   authCode: string;
 };
 
+export type SentDatePreset = "all" | "today" | "yesterday" | "thisWeek" | "lastWeek" | "custom";
+
+export type DeadlineDatePreset = "all" | "today" | "tomorrow" | "thisWeek" | "overdue" | "custom";
+
 export type DateFilter = {
   searchText: string;
-  startDate: string;
-  endDate: string;
+  sentPreset: SentDatePreset;
+  sentStartDate: string;
+  sentEndDate: string;
+  deadlinePreset: DeadlineDatePreset;
+  deadlineStartDate: string;
+  deadlineEndDate: string;
 };
 
 export type UpdateInfo = {

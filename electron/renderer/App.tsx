@@ -10,7 +10,15 @@ import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 
 const EMPTY_SETTINGS: AppSettings = { email: "", authCode: "" };
-const EMPTY_FILTER: DateFilter = { searchText: "", startDate: "", endDate: "" };
+const EMPTY_FILTER: DateFilter = {
+  searchText: "",
+  sentPreset: "all",
+  sentStartDate: "",
+  sentEndDate: "",
+  deadlinePreset: "all",
+  deadlineStartDate: "",
+  deadlineEndDate: "",
+};
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 function hasCompleteSettings(settings: AppSettings): boolean {

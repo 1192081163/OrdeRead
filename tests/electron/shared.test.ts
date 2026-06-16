@@ -70,9 +70,49 @@ describe("shared order sorting and filtering", () => {
     expect(
       filterOrderRows(rows, {
         searchText: "299",
-        startDate: "2026-06-15",
-        endDate: "2026-06-21",
+        sentPreset: "custom",
+        sentStartDate: "2026-06-15",
+        sentEndDate: "2026-06-21",
+        deadlinePreset: "all",
+        deadlineStartDate: "",
+        deadlineEndDate: "",
       }).map((row) => row.orderNumber),
     ).toEqual(["29904", "29912"]);
+  });
+
+  it("filters by sent-date and deadline presets independently", () => {
+    const baseFilter = {
+      searchText: "",
+      sentPreset: "all" as const,
+      sentStartDate: "",
+      sentEndDate: "",
+      deadlinePreset: "all" as const,
+      deadlineStartDate: "",
+      deadlineEndDate: "",
+    };
+
+    expect(filterOrderRows(rows, { ...baseFilter, sentPreset: "today" }, { today: "2026-06-16" }).map((row) => row.orderNumber)).toEqual([
+      "29904",
+      "29912",
+    ]);
+    expect(
+      filterOrderRows(rows, { ...baseFilter, deadlinePreset: "today" }, { today: "2026-06-16" }).map((row) => row.orderNumber),
+    ).toEqual(["29904", "29912"]);
+    expect(
+      filterOrderRows(rows, { ...baseFilter, deadlinePreset: "overdue" }, { today: "2026-06-17" }).map((row) => row.orderNumber),
+    ).toEqual(["29904", "29912"]);
+    expect(
+      filterOrderRows(
+        rows,
+        {
+          ...baseFilter,
+          sentPreset: "today",
+          deadlinePreset: "custom",
+          deadlineStartDate: "2026-06-20",
+          deadlineEndDate: "2026-06-20",
+        },
+        { today: "2026-06-22" },
+      ).map((row) => row.orderNumber),
+    ).toEqual(["29988"]);
   });
 });
