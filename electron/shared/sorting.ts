@@ -1,5 +1,5 @@
-import { normalizeDeadlineDate } from "./date";
-import type { OrderRow } from "./types";
+import { normalizeDeadlineDate } from "./date.js";
+import type { OrderRow } from "./types.js";
 
 export function sortOrderRows(rows: OrderRow[]): OrderRow[] {
   return [...rows].sort((left, right) => {

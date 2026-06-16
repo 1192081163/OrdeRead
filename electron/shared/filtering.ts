@@ -1,5 +1,5 @@
-import { sentDateFromMessageDate } from "./date";
-import type { DateFilter, OrderRow } from "./types";
+import { sentDateFromMessageDate } from "./date.js";
+import type { DateFilter, OrderRow } from "./types.js";
 
 export function filterOrderRows(rows: OrderRow[], filter: DateFilter): OrderRow[] {
   const search = filter.searchText.trim().toLowerCase();
