@@ -70,6 +70,8 @@ On macOS Apple Silicon, download `OrderQuickRead-macos-arm64.dmg`, open it, then
 
 Unsigned internal macOS builds may be blocked by Gatekeeper on first open. If macOS blocks the app because it is not notarized, right-click `Order Quick Read.app`, choose `Open`, then confirm.
 
+Apps built locally may open without that prompt because they are not browser-downloaded quarantine items. GitHub-downloaded macOS builds need Apple Developer ID signing and notarization to open by double-click without the Gatekeeper warning.
+
 GitHub Actions also uploads these build artifacts:
 
 ```text
