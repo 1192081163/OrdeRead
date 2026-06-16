@@ -10,6 +10,9 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     name: Build Windows
@@ -32,6 +35,24 @@ jobs:
         with:
           name: email-order-reader-windows
           path: dist/Email Order Reader
+
+      - name: Upload direct Windows executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: EmailOrderReader.exe
+          path: dist/EmailOrderReader.exe
+
+      - name: Publish direct Windows download
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "build-$env:GITHUB_RUN_NUMBER"
+          gh release create $tag "dist/EmailOrderReader.exe#EmailOrderReader.exe" `
+            --title "Email Order Reader $tag" `
+            --notes "Download EmailOrderReader.exe and double-click to run." `
+            --latest
 
   build-macos:
     name: Build macOS

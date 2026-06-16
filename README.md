@@ -54,10 +54,17 @@ email-order-reader
 
 GitHub Actions:
 
-Push the project to GitHub, then open the `Build Desktop Apps` workflow. It builds both platforms and uploads these artifacts:
+Push the project to GitHub, then open Releases for the direct Windows download:
+
+```text
+EmailOrderReader.exe
+```
+
+Download it and double-click to run. GitHub Actions also uploads these build artifacts:
 
 ```text
 email-order-reader-windows
+EmailOrderReader.exe
 email-order-reader-macos
 ```
 

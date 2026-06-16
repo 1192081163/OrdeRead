@@ -16,3 +16,11 @@ def test_windows_build_script_reports_failed_venv_creation_before_resolving_pyth
 
     assert failure_check in script
     assert script.index(failure_check) < script.index(resolve_python)
+
+
+def test_windows_build_script_creates_direct_clickable_exe():
+    script = Path("scripts/build_windows.ps1").read_text(encoding="utf-8")
+
+    assert '--name "EmailOrderReader"' in script
+    assert "--onefile" in script
+    assert "dist\\EmailOrderReader.exe" in script

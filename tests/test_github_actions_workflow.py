@@ -9,6 +9,7 @@ def test_github_actions_builds_windows_and_macos_artifacts():
     assert "workflow_dispatch:" in content
     assert "push:" in content
     assert "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true" in content
+    assert "contents: write" in content
     assert "build-windows:" in content
     assert "build-macos:" in content
     assert "windows-latest" in content
@@ -24,6 +25,10 @@ def test_github_actions_builds_windows_and_macos_artifacts():
     assert "actions/setup-python@v5" not in content
     assert "actions/upload-artifact@v4" not in content
     assert "dist/Email Order Reader" in content
+    assert "dist/EmailOrderReader.exe" in content
+    assert "EmailOrderReader.exe#EmailOrderReader.exe" in content
+    assert "GH_TOKEN: ${{ github.token }}" in content
+    assert "gh release create" in content
     assert "matrix:" not in content
 
 

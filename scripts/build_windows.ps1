@@ -39,4 +39,15 @@ try {
   --hidden-import xlrd `
   src/email_order_reader/app.py
 
-Write-Host "Build complete: dist\Email Order Reader\Email Order Reader.exe"
+& $PythonExe -m PyInstaller `
+  --name "EmailOrderReader" `
+  --onefile `
+  --windowed `
+  --clean `
+  --noconfirm `
+  --hidden-import openpyxl `
+  --hidden-import xlrd `
+  src/email_order_reader/app.py
+
+Write-Host "Portable folder build complete: dist\Email Order Reader\Email Order Reader.exe"
+Write-Host "Direct executable build complete: dist\EmailOrderReader.exe"
