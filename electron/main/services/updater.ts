@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import type { UpdateInfo } from "../../shared/types.js";
+import { CURRENT_RELEASE_TAG } from "../buildInfo.js";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../../../package.json") as { version?: string };
@@ -52,7 +53,7 @@ export function updateInfoFromReleasePayload(
 ): UpdateInfo | null {
   const latestTag = stringValue(payload.tag_name).trim();
   const currentVersion = options.currentVersion ?? packageJson.version ?? "0.1.0";
-  const currentReleaseTag = options.currentReleaseTag ?? `v${currentVersion}`;
+  const currentReleaseTag = options.currentReleaseTag ?? CURRENT_RELEASE_TAG;
   if (!isNewerRelease(latestTag, currentReleaseTag, currentVersion)) {
     return null;
   }
@@ -153,7 +154,7 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 function isNewerRelease(latestTag: string, currentReleaseTag: string, currentVersion: string): boolean {
-  if (!latestTag) {
+  if (!latestTag || currentReleaseTag === "dev") {
     return false;
   }
 

@@ -24,6 +24,7 @@ def test_github_actions_builds_windows_and_macos_artifacts():
     assert "npm run electron:build -- --win nsis --publish never" in content
     assert "npm run electron:build -- --mac dmg --x64 --publish never" in content
     assert "npm run electron:build -- --mac dmg --arm64 --publish never" in content
+    assert content.count('node scripts/stamp_electron_build_info.mjs "build-${{ github.run_number }}"') == 3
     assert "scripts/build_windows.ps1" not in content
     assert "scripts/build_macos.sh" not in content
     assert "actions/checkout@v6" in content

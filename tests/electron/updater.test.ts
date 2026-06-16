@@ -91,6 +91,48 @@ describe("Electron updater", () => {
     ).toBeNull();
   });
 
+  it("ignores GitHub Actions build releases until the Electron build is stamped", () => {
+    expect(
+      updateInfoFromReleasePayload(
+        {
+          tag_name: "build-25",
+          html_url: "https://github.com/1192081163/order-quick-read/releases/tag/build-25",
+          assets: [{ name: "OrderQuickReadSetup.exe", browser_download_url: "https://example.com/win.exe" }],
+        },
+        { platformName: "win32", arch: "x64" },
+      ),
+    ).toBeNull();
+  });
+
+  it("compares stamped GitHub Actions build tags independently from package version", () => {
+    expect(
+      updateInfoFromReleasePayload(
+        {
+          tag_name: "build-25",
+          html_url: "https://github.com/1192081163/order-quick-read/releases/tag/build-25",
+          assets: [{ name: "OrderQuickReadSetup.exe", browser_download_url: "https://example.com/win.exe" }],
+        },
+        { currentReleaseTag: "build-25", currentVersion: "0.1.0", platformName: "win32", arch: "x64" },
+      ),
+    ).toBeNull();
+
+    expect(
+      updateInfoFromReleasePayload(
+        {
+          tag_name: "build-26",
+          html_url: "https://github.com/1192081163/order-quick-read/releases/tag/build-26",
+          assets: [{ name: "OrderQuickReadSetup.exe", browser_download_url: "https://example.com/win.exe" }],
+        },
+        { currentReleaseTag: "build-25", currentVersion: "0.1.0", platformName: "win32", arch: "x64" },
+      ),
+    ).toEqual({
+      tagName: "build-26",
+      releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/build-26",
+      assetName: "OrderQuickReadSetup.exe",
+      assetUrl: "https://example.com/win.exe",
+    });
+  });
+
   it("downloads update assets without overwriting existing installers", async () => {
     await writeFile(path.join(tempDir, "OrderQuickReadSetup.exe"), Buffer.from("existing"));
     vi.stubGlobal(
