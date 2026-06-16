@@ -17,7 +17,12 @@ def test_github_actions_builds_windows_and_macos_artifacts():
     assert "shell: bash" in content
     assert ".\\scripts\\build_windows.ps1" in content
     assert "bash scripts/build_macos.sh" in content
-    assert "actions/upload-artifact@v4" in content
+    assert "actions/checkout@v6" in content
+    assert "actions/setup-python@v6" in content
+    assert "actions/upload-artifact@v7" in content
+    assert "actions/checkout@v4" not in content
+    assert "actions/setup-python@v5" not in content
+    assert "actions/upload-artifact@v4" not in content
     assert "dist/Email Order Reader" in content
     assert "matrix:" not in content
 
