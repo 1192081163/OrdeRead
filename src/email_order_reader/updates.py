@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import platform
 import re
 import shutil
 import sys
@@ -30,6 +31,7 @@ def check_for_update(
     current_release_tag: str = CURRENT_RELEASE_TAG,
     current_version: str = __version__,
     platform_name: str = sys.platform,
+    machine_name: str | None = None,
     timeout: int = 5,
 ) -> UpdateInfo | None:
     try:
@@ -42,6 +44,7 @@ def check_for_update(
         current_release_tag=current_release_tag,
         current_version=current_version,
         platform_name=platform_name,
+        machine_name=machine_name,
     )
 
 
@@ -62,13 +65,14 @@ def update_info_from_release_payload(
     current_release_tag: str,
     current_version: str,
     platform_name: str = sys.platform,
+    machine_name: str | None = None,
 ) -> UpdateInfo | None:
     latest_tag = str(payload.get("tag_name") or "").strip()
     if not _is_newer_release(latest_tag, current_release_tag, current_version):
         return None
 
     release_url = str(payload.get("html_url") or "").strip()
-    asset = _select_platform_asset(payload.get("assets") or [], platform_name)
+    asset = _select_platform_asset(payload.get("assets") or [], platform_name, machine_name)
     if not asset:
         return UpdateInfo(
             tag_name=latest_tag,
@@ -118,14 +122,35 @@ def default_download_dir() -> Path:
     return Path.home()
 
 
-def _select_platform_asset(assets: list[dict], platform_name: str) -> dict | None:
+def _select_platform_asset(assets: list[dict], platform_name: str, machine_name: str | None = None) -> dict | None:
     suffix = _asset_suffix_for_platform(platform_name)
     if not suffix:
         return None
 
+    if platform_name == "darwin":
+        preferred_asset = _select_macos_arch_asset(assets, machine_name or platform.machine())
+        if preferred_asset is not None:
+            return preferred_asset
+
     for asset in assets:
         name = str(asset.get("name") or "").lower()
         if name.endswith(suffix):
+            return asset
+    return None
+
+
+def _select_macos_arch_asset(assets: list[dict], machine_name: str) -> dict | None:
+    machine = machine_name.lower()
+    if machine in {"arm64", "aarch64"}:
+        preferred_tokens = ("arm64", "apple-silicon", "apple_silicon")
+    elif machine in {"x86_64", "amd64", "i386", "i686"}:
+        preferred_tokens = ("x64", "x86_64", "intel")
+    else:
+        return None
+
+    for asset in assets:
+        name = str(asset.get("name") or "").lower()
+        if name.endswith(".dmg") and any(token in name for token in preferred_tokens):
             return asset
     return None
 

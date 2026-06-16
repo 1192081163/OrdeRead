@@ -58,20 +58,27 @@ Push the project to GitHub, then open Releases for direct downloads:
 
 ```text
 OrderQuickRead.exe
-OrderQuickRead.dmg
+OrderQuickRead-macos-x64.dmg
+OrderQuickRead-macos-arm64.dmg
 ```
 
 On Windows, download `OrderQuickRead.exe` and double-click to run.
 
-On macOS, download `OrderQuickRead.dmg`, open it, then open `Order Quick Read.app`.
+On macOS Intel, download `OrderQuickRead-macos-x64.dmg`, open it, then open `Order Quick Read.app`.
+
+On macOS Apple Silicon, download `OrderQuickRead-macos-arm64.dmg`, open it, then open `Order Quick Read.app`.
+
+Unsigned internal macOS builds may be blocked by Gatekeeper on first open. If macOS blocks the app because it is not notarized, right-click `Order Quick Read.app`, choose `Open`, then confirm.
 
 GitHub Actions also uploads these build artifacts:
 
 ```text
 order-quick-read-windows
 OrderQuickRead.exe
-order-quick-read-macos
-OrderQuickRead.dmg
+order-quick-read-macos-x64
+OrderQuickRead-macos-x64.dmg
+order-quick-read-macos-arm64
+OrderQuickRead-macos-arm64.dmg
 ```
 
 macOS:
