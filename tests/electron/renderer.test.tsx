@@ -121,6 +121,20 @@ describe("Electron renderer", () => {
     expect(screen.getByRole("menuitem", { name: "修改邮箱设置" })).toBeInTheDocument();
   });
 
+  it("keeps more actions inline with the toolbar when opened", async () => {
+    vi.mocked(api.loadSettings).mockResolvedValue({ email: "saved@example.com", authCode: "secret" });
+
+    render(<App />);
+    await screen.findByText("saved@example.com");
+
+    fireEvent.click(screen.getByRole("button", { name: "更多操作" }));
+
+    const toolbar = screen.getByRole("region", { name: "邮箱工具栏" });
+    expect(toolbar).toContainElement(await screen.findByRole("menu"));
+    expect(screen.getByRole("main", { name: "订单快读" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "订单筛选" })).toBeInTheDocument();
+  });
+
   it("shows running status as a transient popup instead of a persistent bar", () => {
     vi.useFakeTimers();
 

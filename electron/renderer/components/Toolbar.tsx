@@ -1,15 +1,5 @@
-import {
-  Badge,
-  Button,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuList,
-  MenuPopover,
-  MenuTrigger,
-  Text,
-  Title3,
-} from "@fluentui/react-components";
+import { useEffect, useRef, useState } from "react";
+import { Badge, Button, Text, Title3 } from "@fluentui/react-components";
 
 type Props = {
   disabled: boolean;
@@ -22,6 +12,46 @@ type Props = {
 };
 
 export function Toolbar({ disabled, email, onRefresh, onScanAll, onClearCache, onCheckUpdate, onEditSettings }: Props) {
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMoreOpen) {
+      return undefined;
+    }
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (moreMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      setIsMoreOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsMoreOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isMoreOpen]);
+
+  useEffect(() => {
+    if (disabled) {
+      setIsMoreOpen(false);
+    }
+  }, [disabled]);
+
+  function runMoreAction(action: () => void) {
+    setIsMoreOpen(false);
+    action();
+  }
+
   return (
     <section className="panel toolbar" role="region" aria-label="邮箱工具栏">
       <div className="toolbar-title">
@@ -40,24 +70,29 @@ export function Toolbar({ disabled, email, onRefresh, onScanAll, onClearCache, o
         <Button disabled={disabled} onClick={onScanAll}>
           同步近一个月
         </Button>
-        <Menu>
-          <MenuTrigger disableButtonEnhancement>
-            <MenuButton disabled={disabled}>更多操作</MenuButton>
-          </MenuTrigger>
-          <MenuPopover>
-            <MenuList>
-              <MenuItem disabled={disabled} onClick={onClearCache}>
+        <div className="toolbar-more" ref={moreMenuRef}>
+          <Button
+            aria-expanded={isMoreOpen}
+            aria-haspopup="menu"
+            disabled={disabled}
+            onClick={() => setIsMoreOpen((current) => !current)}
+          >
+            更多操作
+          </Button>
+          {isMoreOpen ? (
+            <div className="toolbar-more-menu" role="menu" aria-label="更多操作">
+              <Button appearance="subtle" className="toolbar-more-item" role="menuitem" onClick={() => runMoreAction(onClearCache)}>
                 清空缓存
-              </MenuItem>
-              <MenuItem disabled={disabled} onClick={onCheckUpdate}>
+              </Button>
+              <Button appearance="subtle" className="toolbar-more-item" role="menuitem" onClick={() => runMoreAction(onCheckUpdate)}>
                 检查更新
-              </MenuItem>
-              <MenuItem disabled={disabled} onClick={onEditSettings}>
+              </Button>
+              <Button appearance="subtle" className="toolbar-more-item" role="menuitem" onClick={() => runMoreAction(onEditSettings)}>
                 修改邮箱设置
-              </MenuItem>
-            </MenuList>
-          </MenuPopover>
-        </Menu>
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );

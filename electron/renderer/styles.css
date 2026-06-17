@@ -104,6 +104,32 @@ body {
   justify-content: flex-end;
 }
 
+.toolbar-more {
+  position: relative;
+}
+
+.toolbar-more-menu {
+  background: #ffffff;
+  border: 1px solid #d1d1d1;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 14%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 148px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+}
+
+.toolbar-more-item {
+  justify-content: flex-start;
+  width: 100%;
+}
+
 .filter-bar {
   align-items: end;
   display: grid;
