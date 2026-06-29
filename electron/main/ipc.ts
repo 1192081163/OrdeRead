@@ -13,6 +13,13 @@ import { ImapAttachmentClient } from "./services/mailClient.js";
 import { MailboxClientCache } from "./services/mailClientCache.js";
 import { countOrderChanges, notifyOrderChanges } from "./services/notifier.js";
 import { clearOrderCache, loadOrderCache } from "./services/orderCache.js";
+import {
+  defaultRemoteEmailApiConfigPaths,
+  loadRemoteEmailApiConfig,
+  RemoteEmailApiClient,
+  remoteEmailApiStatus,
+  scanRemoteOrders,
+} from "./services/remoteEmailApi.js";
 import { scanOrders } from "./services/orderScanner.js";
 import { loadSettings, saveSettings } from "./services/settingsStore.js";
 import { checkForElectronUpdate, downloadUpdateAsset } from "./services/updater.js";
@@ -36,6 +43,13 @@ function legacySettingsPath(): string {
   }
 
   return join(app.getPath("home"), ".email-order-reader", "settings.json");
+}
+
+function remoteEmailApiConfigPaths(): string[] {
+  return [
+    appDataPath("email_api_client.json"),
+    ...defaultRemoteEmailApiConfigPaths((process as NodeJS.Process & { resourcesPath?: string }).resourcesPath),
+  ];
 }
 
 export function registerIpcHandlers(): void {
@@ -74,10 +88,17 @@ export async function closeMailboxClients(): Promise<void> {
 }
 
 async function loadStoredSettings(): Promise<AppSettings> {
-  return loadSettings({
+  const settings = await loadSettings({
     settingsPath: appDataPath("settings.json"),
     legacySettingsPath: legacySettingsPath(),
   });
+  const remoteConfig = await loadRemoteEmailApiConfig(process.env, remoteEmailApiConfigPaths());
+  const remoteEmailApi = remoteEmailApiStatus(remoteConfig);
+  return {
+    ...settings,
+    ...(remoteEmailApi ? { remoteEmailApi } : {}),
+    ...(!settings.email && remoteEmailApi ? { email: "远端邮件服务" } : {}),
+  };
 }
 
 function sendBackfillStatus(event: IpcMainInvokeEvent, status: BackgroundBackfillStatus): void {
@@ -89,11 +110,21 @@ async function scanStoredMailbox(
   onBackgroundBackfillStatus?: (status: BackgroundBackfillStatus) => void,
 ): Promise<ScanResult> {
   const settings = await loadStoredSettings();
+  const remoteConfig = await loadRemoteEmailApiConfig(process.env, remoteEmailApiConfigPaths());
+  const cachePath = appDataPath("order_cache.json");
+  if (remoteConfig) {
+    return scanRemoteOrders({
+      client: new RemoteEmailApiClient(remoteConfig),
+      request: options,
+      cachePath,
+      accountEmail: settings.email || "远端邮件服务",
+    });
+  }
+
   if (!settings.email || !settings.authCode) {
     throw new Error("请先填写并保存企业微信邮箱和授权码。");
   }
 
-  const cachePath = appDataPath("order_cache.json");
   const previousCache = await loadOrderCache(cachePath);
   const client = mailboxClients.get(settings);
   const result = await scanOrders({

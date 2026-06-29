@@ -34,6 +34,10 @@ export type BackgroundBackfillStatus = {
 export type AppSettings = {
   email: string;
   authCode: string;
+  remoteEmailApi?: {
+    configured: boolean;
+    baseUrl?: string;
+  };
 };
 
 export type SentDatePreset = "all" | "today" | "yesterday" | "thisWeek" | "lastWeek" | "custom";

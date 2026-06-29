@@ -10,12 +10,61 @@ afterEach(() => {
   vi.doUnmock("../../electron/main/services/orderCache.js");
   vi.doUnmock("../../electron/main/services/orderScanner.js");
   vi.doUnmock("../../electron/main/services/mailClient.js");
+  vi.doUnmock("../../electron/main/services/mailClientCache.js");
   vi.doUnmock("../../electron/main/services/notifier.js");
+  vi.doUnmock("../../electron/main/services/remoteEmailApi.js");
   vi.doUnmock("../../electron/main/services/updater.js");
 });
 
+type Handler = (...args: unknown[]) => unknown;
+
+function mockElectron(handlers: Map<string, Handler>) {
+  vi.doMock("electron", () => ({
+    app: { getPath: vi.fn(() => "/tmp/order-quick-read-test") },
+    ipcMain: {
+      handle: vi.fn((channel: string, handler: Handler) => {
+        handlers.set(channel, handler);
+      }),
+    },
+    shell: {
+      showItemInFolder: vi.fn(),
+      openPath: vi.fn(async () => ""),
+    },
+  }));
+}
+
+function mockCommonServices(settings = { email: "buyer@example.com", authCode: "secret" }) {
+  vi.doMock("../../electron/main/services/settingsStore.js", () => ({
+    loadSettings: vi.fn(async () => settings),
+    saveSettings: vi.fn(async () => undefined),
+  }));
+  vi.doMock("../../electron/main/services/orderCache.js", () => ({
+    loadOrderCache: vi.fn(async () => ({
+      email: "",
+      uidvalidity: "",
+      lastUid: 0,
+      rows: [],
+      warnings: [],
+      scannedMessages: 0,
+      parsedAttachments: 0,
+    })),
+    clearOrderCache: vi.fn(async () => undefined),
+  }));
+  vi.doMock("../../electron/main/services/mailClient.js", () => ({
+    ImapAttachmentClient: vi.fn(),
+  }));
+  vi.doMock("../../electron/main/services/notifier.js", () => ({
+    countOrderChanges: vi.fn(() => ({ newCount: 0, updatedCount: 0 })),
+    notifyOrderChanges: vi.fn(),
+  }));
+  vi.doMock("../../electron/main/services/updater.js", () => ({
+    checkForElectronUpdate: vi.fn(async () => null),
+    downloadUpdateAsset: vi.fn(),
+  }));
+}
+
 describe("IPC contract", () => {
-  it("defines stable channels for renderer calls", () => {
+  it("defines stable channels renderer calls", () => {
     expect(IPC_CHANNELS).toEqual({
       loadSettings: "settings:load",
       saveSettings: "settings:save",
@@ -28,8 +77,8 @@ describe("IPC contract", () => {
     });
   });
 
-  it("forwards scan background backfill requests to the scanner", async () => {
-    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+  it("forwards scan background backfill requests to the local scanner when remote API is not configured", async () => {
+    const handlers = new Map<string, Handler>();
     const scanOrders = vi.fn(async () => ({
       rows: [],
       warnings: [],
@@ -37,48 +86,26 @@ describe("IPC contract", () => {
       parsedAttachments: 0,
       scanMode: "full" as const,
     }));
+    const send = vi.fn();
 
-    vi.doMock("electron", () => ({
-      app: { getPath: vi.fn(() => "/tmp/order-quick-read-test") },
-      ipcMain: {
-        handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
-          handlers.set(channel, handler);
-        }),
-      },
-      shell: {
-        showItemInFolder: vi.fn(),
-        openPath: vi.fn(async () => ""),
-      },
-    }));
-    vi.doMock("../../electron/main/services/settingsStore.js", () => ({
-      loadSettings: vi.fn(async () => ({ email: "buyer@example.com", authCode: "secret" })),
-      saveSettings: vi.fn(),
-    }));
-    vi.doMock("../../electron/main/services/orderCache.js", () => ({
-      clearOrderCache: vi.fn(),
-      loadOrderCache: vi.fn(async () => ({ rows: [] })),
-    }));
+    mockElectron(handlers);
+    mockCommonServices();
     vi.doMock("../../electron/main/services/orderScanner.js", () => ({ scanOrders }));
-    vi.doMock("../../electron/main/services/mailClient.js", () => ({
-      ImapAttachmentClient: vi.fn(function ImapAttachmentClient() {
-        return { close: vi.fn() };
-      }),
-    }));
-    vi.doMock("../../electron/main/services/notifier.js", () => ({
-      countOrderChanges: vi.fn(),
-      notifyOrderChanges: vi.fn(),
-    }));
-    vi.doMock("../../electron/main/services/updater.js", () => ({
-      checkForElectronUpdate: vi.fn(),
-      downloadUpdateAsset: vi.fn(),
-    }));
+    vi.doMock("../../electron/main/services/remoteEmailApi.js", async () => {
+      const actual = await vi.importActual<typeof import("../../electron/main/services/remoteEmailApi")>(
+        "../../electron/main/services/remoteEmailApi",
+      );
+      return {
+        ...actual,
+        loadRemoteEmailApiConfig: vi.fn(async () => undefined),
+        scanRemoteOrders: vi.fn(),
+      };
+    });
 
     const { registerIpcHandlers } = await import("../../electron/main/ipc");
     registerIpcHandlers();
-
     const handler = handlers.get(IPC_CHANNELS.scanOrders);
-    expect(handler).toBeDefined();
-    const send = vi.fn();
+
     await handler?.(
       { sender: { send } },
       {
@@ -120,5 +147,59 @@ describe("IPC contract", () => {
       state: "completed",
       message: "历史邮件同步完成。",
     });
+  });
+
+  it("uses the remote email API instead of local IMAP when configured", async () => {
+    const handlers = new Map<string, Handler>();
+    const scanOrders = vi.fn();
+    const scanRemoteOrders = vi.fn(async () => ({
+      rows: [],
+      warnings: [],
+      scannedMessages: 1,
+      parsedAttachments: 1,
+      scanMode: "full" as const,
+    }));
+
+    mockElectron(handlers);
+    mockCommonServices({ email: "", authCode: "" });
+    vi.doMock("../../electron/main/services/orderScanner.js", () => ({ scanOrders }));
+    vi.doMock("../../electron/main/services/remoteEmailApi.js", async () => {
+      const actual = await vi.importActual<typeof import("../../electron/main/services/remoteEmailApi")>(
+        "../../electron/main/services/remoteEmailApi",
+      );
+      return {
+        ...actual,
+        loadRemoteEmailApiConfig: vi.fn(async () => ({ baseUrl: "https://api.example", token: "secret" })),
+        scanRemoteOrders,
+      };
+    });
+
+    const { registerIpcHandlers } = await import("../../electron/main/ipc");
+    registerIpcHandlers();
+    const handler = handlers.get(IPC_CHANNELS.scanOrders);
+
+    await handler?.(
+      { sender: { send: vi.fn() } },
+      {
+        fullScan: true,
+        includeMetrics: true,
+        sentStartDate: "2026-06-11",
+        sentEndDate: "2026-06-17",
+      },
+    );
+
+    expect(scanOrders).not.toHaveBeenCalled();
+    expect(scanRemoteOrders).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining({
+          fullScan: true,
+          includeMetrics: true,
+          sentStartDate: "2026-06-11",
+          sentEndDate: "2026-06-17",
+        }),
+        cachePath: "/tmp/order-quick-read-test/order_cache.json",
+        accountEmail: "远端邮件服务",
+      }),
+    );
   });
 });

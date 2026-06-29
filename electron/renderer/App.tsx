@@ -44,7 +44,7 @@ const RECENT_SCAN_DAYS = 7;
 const MAX_SCAN_DAYS = 30;
 
 function hasCompleteSettings(settings: AppSettings): boolean {
-  return Boolean(settings.email.trim() && settings.authCode);
+  return Boolean(settings.remoteEmailApi?.configured || (settings.email.trim() && settings.authCode));
 }
 
 function statusFromError(error: unknown): string {
@@ -184,15 +184,15 @@ export function App() {
           return;
         }
 
-        setSettings(loadedSettings);
-        if (hasCompleteSettings(loadedSettings)) {
-          setEditingSettings(false);
-          setStatus("已加载保存的邮箱。");
-          return;
-        }
+      setSettings(loadedSettings);
+      if (hasCompleteSettings(loadedSettings)) {
+        setEditingSettings(false);
+        setStatus(loadedSettings.remoteEmailApi?.configured ? "已加载远端邮件服务。" : "已加载保存的邮箱。");
+        return;
+      }
 
-        setEditingSettings(true);
-        setStatus("请填写邮箱和授权码。");
+      setEditingSettings(true);
+      setStatus("请填写邮箱和授权码，或配置远端邮件服务。");
       } catch (error) {
         if (isMounted) {
           setStatus(statusFromError(error));
@@ -258,14 +258,21 @@ export function App() {
   const displayRows = useMemo(() => filterOrderRows(sortOrderRows(rows), filter), [rows, filter]);
 
   async function saveSettings(): Promise<boolean> {
-    const nextSettings = {
+    const nextSettings: AppSettings = {
       email: settings.email.trim(),
       authCode: settings.authCode,
+      remoteEmailApi: settings.remoteEmailApi,
     };
+
+    if (settings.remoteEmailApi?.configured && !settings.authCode) {
+      setEditingSettings(false);
+      setStatus("已使用远端邮件服务。");
+      return true;
+    }
 
     if (!hasCompleteSettings(nextSettings)) {
       setEditingSettings(true);
-      setStatus("请填写邮箱和授权码。");
+      setStatus("请填写邮箱和授权码，或配置远端邮件服务。");
       return false;
     }
 
@@ -297,7 +304,7 @@ export function App() {
 
     if (!hasCompleteSettings(settings)) {
       setEditingSettings(true);
-      setStatus("请填写邮箱和授权码。");
+      setStatus("请填写邮箱和授权码，或配置远端邮件服务。");
       return false;
     }
 

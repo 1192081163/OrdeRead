@@ -4,8 +4,8 @@ Order Quick Read is a minimal Electron desktop app for reading Enterprise WeChat
 
 ## 功能
 
-- 默认使用企业微信邮箱 IMAP：`imap.exmail.qq.com:993`。
-- 读取邮件里的 `.xlsx`、`.xlsm`、`.xls` 附件。
+- 优先使用 Orderflow Email API 服务器读取邮件并提取订单；未配置服务器时可回退到本地企业微信邮箱 IMAP：`imap.exmail.qq.com:993`。
+- 读取邮件里的 `.xlsx`、`.xlsm`、`.xls` 附件或服务器端提取结果。
 - 前台只显示两列：`订单号` 和 `截至时间`。
 - 按截止时间排序，并支持按订单号、发送日期筛选。
 - 邮箱和授权码保存到本机，启动后自动填入；配置完整后设置区自动收起。
@@ -32,6 +32,31 @@ macOS/Linux: ~/.email-order-reader/settings.json
 ```
 
 授权码是本地 JSON 保存，不写入系统钥匙串。
+
+## 远端邮件服务
+
+如果已部署 R004 的 `orderflow-email-api` 服务，订单快读会优先调用服务器接口：
+
+- `POST /api/email/messages`
+- `POST /api/email/extract`
+
+客户端配置使用 R004 相同格式，优先级如下：
+
+1. 环境变量 `ORDERFLOW_EMAIL_API_URL` 和 `ORDERFLOW_EMAIL_API_TOKEN`
+2. 应用数据目录中的 `email_api_client.json`
+3. `~/.order_organizer_assistant/email_api_client.json`
+4. 打包资源目录中的 `config/remote-email-api.json`
+
+配置示例：
+
+```json
+{
+  "baseUrl": "https://your-email-api.example.com",
+  "token": "your-api-token"
+}
+```
+
+配置远端服务后，客户端不需要保存企业邮箱授权码。
 
 ## 开发
 
