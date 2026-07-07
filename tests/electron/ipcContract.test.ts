@@ -20,7 +20,7 @@ type Handler = (...args: unknown[]) => unknown;
 
 function mockElectron(handlers: Map<string, Handler>) {
   vi.doMock("electron", () => ({
-    app: { getPath: vi.fn(() => "/tmp/order-quick-read-test") },
+    app: { getPath: vi.fn(() => "/tmp/order-quick-read-test"), quit: vi.fn() },
     ipcMain: {
       handle: vi.fn((channel: string, handler: Handler) => {
         handlers.set(channel, handler);
@@ -201,5 +201,37 @@ describe("IPC contract", () => {
         accountEmail: "远端邮件服务",
       }),
     );
+  });
+
+  it("quits current app after update installer opens", async () => {
+    const handlers = new Map<string, Handler>();
+    mockElectron(handlers);
+    mockCommonServices();
+
+    const { registerIpcHandlers } = await import("../../electron/main/ipc");
+    const { app, shell } = await import("electron");
+    registerIpcHandlers();
+    const handler = handlers.get(IPC_CHANNELS.installUpdate);
+
+    await handler?.({}, "/tmp/OrderQuickReadSetup.exe");
+
+    expect(shell.openPath).toHaveBeenCalledWith("/tmp/OrderQuickReadSetup.exe");
+    expect(app.quit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not quit current app when update installer fails to open", async () => {
+    const handlers = new Map<string, Handler>();
+    mockElectron(handlers);
+    mockCommonServices();
+
+    const { registerIpcHandlers } = await import("../../electron/main/ipc");
+    const { app, shell } = await import("electron");
+    vi.mocked(shell.openPath).mockResolvedValue("permission denied");
+    registerIpcHandlers();
+    const handler = handlers.get(IPC_CHANNELS.installUpdate);
+
+    await expect(handler?.({}, "/tmp/OrderQuickReadSetup.exe")).rejects.toThrow("permission denied");
+
+    expect(app.quit).not.toHaveBeenCalled();
   });
 });

@@ -41,7 +41,7 @@ const EMPTY_FILTER: DateFilter = {
 };
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const RECENT_SCAN_DAYS = 7;
-const MAX_SCAN_DAYS = 30;
+const MAX_SCAN_DAYS = 7;
 
 function hasCompleteSettings(settings: AppSettings): boolean {
   return Boolean(settings.remoteEmailApi?.configured || (settings.email.trim() && settings.authCode));
@@ -406,7 +406,7 @@ export function App() {
       const installerPath = await api.downloadUpdate(pendingUpdate);
       await api.installUpdate(installerPath);
       setIsUpdatePromptOpen(false);
-      setStatus("已打开新版安装包。请按安装向导完成更新。");
+      setStatus("已打开新版安装包，当前版本将关闭。安装完成后请重新打开订单快读。");
     } catch (error) {
       setStatus(statusFromError(error));
     } finally {
@@ -451,13 +451,14 @@ export function App() {
                   <Text block className="update-asset-name">
                     {pendingUpdate.assetName || "请打开 Release 页面下载适合当前系统的安装包。"}
                   </Text>
+                  <Text block>安装程序打开后会关闭当前版本，安装完成后请重新打开订单快读。</Text>
                 </DialogContent>
                 <DialogActions>
                   <Button disabled={isBusy} onClick={() => setIsUpdatePromptOpen(false)}>
                     稍后
                   </Button>
                   <Button appearance="primary" disabled={isBusy} onClick={() => void downloadUpdate()}>
-                    下载新版
+                    下载并安装
                   </Button>
                 </DialogActions>
               </DialogBody>

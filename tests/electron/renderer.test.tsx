@@ -180,7 +180,7 @@ describe("Electron renderer", () => {
         sentStartDate: "2026-06-11",
         sentEndDate: "2026-06-17",
         backgroundBackfill: true,
-        backgroundSentStartDate: "2026-05-19",
+        backgroundSentStartDate: "2026-06-11",
         backgroundSentEndDate: "2026-06-17",
       }),
     );
@@ -423,7 +423,8 @@ describe("Electron renderer", () => {
     expect(await screen.findByText("saved@example.com")).toBeInTheDocument();
     expect(await screen.findByRole("dialog", { name: "发现新版本" })).toBeInTheDocument();
     expect(screen.getByText("发现新版本 v1.2.0")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "下载新版" })).toBeInTheDocument();
+    expect(screen.getByText("安装程序打开后会关闭当前版本，安装完成后请重新打开订单快读。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下载并安装" })).toBeInTheDocument();
   });
 
   it("downloads and opens an available update from the prompt action", async () => {
@@ -441,7 +442,7 @@ describe("Electron renderer", () => {
     await clickMoreMenuItem("检查更新");
     expect(await screen.findByRole("dialog", { name: "发现新版本" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "下载新版" }));
+    fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
     await waitFor(() =>
       expect(api.downloadUpdate).toHaveBeenCalledWith({
         tagName: "v1.2.0",
@@ -451,6 +452,6 @@ describe("Electron renderer", () => {
       }),
     );
     await waitFor(() => expect(api.installUpdate).toHaveBeenCalledWith("C:\\Users\\admin\\Downloads\\OrderQuickReadSetup.exe"));
-    expect(await screen.findByText("已打开新版安装包。请按安装向导完成更新。")).toBeInTheDocument();
+    expect(await screen.findByText("已打开新版安装包，当前版本将关闭。安装完成后请重新打开订单快读。")).toBeInTheDocument();
   });
 });

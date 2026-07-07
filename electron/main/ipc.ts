@@ -80,6 +80,7 @@ export function registerIpcHandlers(): void {
     if (errorMessage) {
       throw new Error(errorMessage);
     }
+    app.quit();
   });
 }
 
