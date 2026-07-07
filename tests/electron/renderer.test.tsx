@@ -302,6 +302,42 @@ describe("Electron renderer", () => {
     );
   });
 
+  it("clears sent and deadline date filters in one action", async () => {
+    vi.mocked(api.loadSettings).mockResolvedValue({ email: "saved@example.com", authCode: "secret" });
+
+    render(<App />);
+    await screen.findByText("saved@example.com");
+    fireEvent.change(screen.getByLabelText("发送时间"), { target: { value: "2026-06-18" } });
+    fireEvent.blur(screen.getByLabelText("发送时间"));
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "2026-06-20" } });
+    fireEvent.blur(screen.getByLabelText("截止时间"));
+
+    fireEvent.click(screen.getByRole("button", { name: "清空时间" }));
+    fireEvent.click(screen.getByRole("button", { name: "刷新最新" }));
+
+    await waitFor(() => expect(api.scanOrders).toHaveBeenCalledWith({ fullScan: false, includeMetrics: true }));
+    expect(screen.getByLabelText("发送时间")).toHaveValue("");
+    expect(screen.getByLabelText("截止时间")).toHaveValue("");
+  });
+
+  it("clears each date filter independently from its field", async () => {
+    vi.mocked(api.loadSettings).mockResolvedValue({ email: "saved@example.com", authCode: "secret" });
+
+    render(<App />);
+    await screen.findByText("saved@example.com");
+    fireEvent.change(screen.getByLabelText("发送时间"), { target: { value: "2026-06-18" } });
+    fireEvent.blur(screen.getByLabelText("发送时间"));
+    fireEvent.change(screen.getByLabelText("截止时间"), { target: { value: "2026-06-20" } });
+    fireEvent.blur(screen.getByLabelText("截止时间"));
+
+    fireEvent.click(screen.getByRole("button", { name: "清空发送时间" }));
+
+    expect(screen.getByLabelText("发送时间")).toHaveValue("");
+    expect(screen.getByLabelText("截止时间")).toHaveValue("2026-06-20");
+    expect(screen.getByRole("button", { name: "清空截止时间" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "清空发送时间" })).not.toBeInTheDocument();
+  });
+
   it("shows sent dates in the order table", async () => {
     vi.mocked(api.loadSettings).mockResolvedValue({ email: "saved@example.com", authCode: "secret" });
     vi.mocked(api.scanOrders).mockResolvedValue({

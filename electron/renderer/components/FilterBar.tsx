@@ -61,18 +61,34 @@ type DateFilterPickerProps = {
 };
 
 function DateFilterPicker({ className, label, onChange, value }: DateFilterPickerProps) {
+  const inputShellClassName = value ? "date-filter-input-shell has-value" : "date-filter-input-shell";
+
   return (
     <Field label={label} className={className}>
-      <DatePicker
-        allowTextInput
-        formatDate={isoFromDate}
-        inlinePopup
-        onSelectDate={(date) => onChange(isoFromDate(date))}
-        parseDateFromString={parseDateFromString}
-        placeholder="选择日期"
-        strings={CHINESE_CALENDAR_STRINGS}
-        value={dateFromIso(value)}
-      />
+      <div className={inputShellClassName}>
+        <DatePicker
+          allowTextInput
+          formatDate={isoFromDate}
+          inlinePopup
+          onSelectDate={(date) => onChange(isoFromDate(date))}
+          parseDateFromString={parseDateFromString}
+          placeholder="选择日期"
+          strings={CHINESE_CALENDAR_STRINGS}
+          value={dateFromIso(value)}
+        />
+        {value ? (
+          <Button
+            appearance="transparent"
+            aria-label={`清空${label}`}
+            className="date-filter-clear"
+            onClick={() => onChange("")}
+            onMouseDown={(event) => event.preventDefault()}
+            size="small"
+          >
+            ×
+          </Button>
+        ) : null}
+      </div>
     </Field>
   );
 }

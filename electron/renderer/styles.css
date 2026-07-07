@@ -160,6 +160,31 @@ body {
   min-width: 220px;
 }
 
+.date-filter-input-shell {
+  position: relative;
+}
+
+.date-filter-input-shell .fui-DatePicker,
+.date-filter-input-shell .fui-Input {
+  width: 100%;
+}
+
+.date-filter-input-shell.has-value .fui-Input__input {
+  padding-right: 56px;
+}
+
+.date-filter-clear {
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  z-index: 2;
+}
+
 .clear-date-filters {
   flex: 0 0 auto;
   min-width: 104px;
