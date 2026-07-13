@@ -479,14 +479,7 @@ describe("Electron renderer", () => {
     expect(await screen.findByRole("dialog", { name: "发现新版本" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
-    await waitFor(() =>
-      expect(api.downloadUpdate).toHaveBeenCalledWith({
-        tagName: "v1.2.0",
-        releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/v1.2.0",
-        assetName: "OrderQuickReadSetup.exe",
-        assetUrl: "https://example.com/OrderQuickReadSetup.exe",
-      }),
-    );
+    await waitFor(() => expect(api.downloadUpdate).toHaveBeenCalledWith());
     await waitFor(() => expect(api.installUpdate).toHaveBeenCalledWith("C:\\Users\\admin\\Downloads\\OrderQuickReadSetup.exe"));
     expect(await screen.findByText("已打开新版安装包，当前版本将关闭。安装完成后请重新打开订单快读。")).toBeInTheDocument();
   });

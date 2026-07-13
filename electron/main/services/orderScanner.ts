@@ -44,12 +44,16 @@ type ParsedAttachmentBatch = {
 
 export async function scanOrders(options: ScanOrdersOptions): Promise<ScanResult> {
   if (hasSentDateRange(options)) {
-    const reusableCache = await loadReusableCache(options);
-    const result = await scanMailbox(options, {
-      sinceUid: options.fullScan === false ? options.sinceUid : undefined,
+    const replacesSameRangeBackfill = hasSameBackgroundBackfillRange(options);
+    const foregroundOptions = replacesSameRangeBackfill
+      ? { ...options, cacheDateRangedScan: true, backgroundBackfill: false }
+      : options;
+    const reusableCache = await loadReusableCache(foregroundOptions);
+    const result = await scanMailbox(foregroundOptions, {
+      sinceUid: foregroundOptions.fullScan === false ? foregroundOptions.sinceUid : undefined,
       scanMode: options.fullScan === false ? "incremental" : "full",
     }, reusableCache);
-    if (options.backgroundBackfill) {
+    if (options.backgroundBackfill && !replacesSameRangeBackfill) {
       startBackgroundBackfill(options);
     }
     return result;
@@ -191,6 +195,19 @@ function sentDateFetchOptions(options: ScanOrdersOptions): Pick<ScanOrdersOption
 
 function hasSentDateRange(options: Pick<ScanOrdersOptions, "sentStartDate" | "sentEndDate">): boolean {
   return Boolean(options.sentStartDate || options.sentEndDate);
+}
+
+function hasSameBackgroundBackfillRange(
+  options: Pick<
+    ScanOrdersOptions,
+    "backgroundBackfill" | "sentStartDate" | "sentEndDate" | "backgroundSentStartDate" | "backgroundSentEndDate"
+  >,
+): boolean {
+  return Boolean(
+    options.backgroundBackfill &&
+    options.sentStartDate === options.backgroundSentStartDate &&
+    options.sentEndDate === options.backgroundSentEndDate,
+  );
 }
 
 function startBackgroundBackfill(options: ScanOrdersOptions): void {

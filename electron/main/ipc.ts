@@ -31,6 +31,7 @@ const mailboxClients = new MailboxClientCache(
       authCode,
     }),
 );
+const downloadedUpdatePaths = new Set<string>();
 
 function appDataPath(filename: string): string {
   return join(app.getPath("userData"), filename);
@@ -69,15 +70,24 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.checkUpdates, async (): Promise<UpdateInfo | null> => checkForElectronUpdate());
 
-  ipcMain.handle(IPC_CHANNELS.downloadUpdate, async (_event, update: UpdateInfo): Promise<string> => {
+  ipcMain.handle(IPC_CHANNELS.downloadUpdate, async (): Promise<string> => {
+    const update = await checkForElectronUpdate();
+    if (!update) {
+      throw new Error("当前没有可下载的新版本，请重新检查更新。");
+    }
     const downloadPath = await downloadUpdateAsset(update, app.getPath("downloads"));
+    downloadedUpdatePaths.add(downloadPath);
     await shell.showItemInFolder(downloadPath);
     return downloadPath;
   });
 
   ipcMain.handle(IPC_CHANNELS.installUpdate, async (_event, installerPath: string): Promise<void> => {
+    if (!downloadedUpdatePaths.delete(installerPath)) {
+      throw new Error("安装文件未经当前应用下载，已拒绝打开。");
+    }
     const errorMessage = await shell.openPath(installerPath);
     if (errorMessage) {
+      downloadedUpdatePaths.add(installerPath);
       throw new Error(errorMessage);
     }
     app.quit();

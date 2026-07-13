@@ -53,6 +53,7 @@ describe("Electron updater", () => {
     expect(selectReleaseAsset(["OrderQuickReadSetup.exe", "OrderQuickRead-macos-arm64.dmg"], "win32", "x64")).toBe(
       "OrderQuickReadSetup.exe",
     );
+    expect(selectReleaseAsset(["unexpected-installer.exe"], "win32", "x64")).toBe("");
   });
 
   it("selects Apple Silicon macOS dmg", () => {
@@ -159,7 +160,7 @@ describe("Electron updater", () => {
         tagName: "v1.2.0",
         releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/v1.2.0",
         assetName: "OrderQuickReadSetup.exe",
-        assetUrl: "https://example.com/OrderQuickReadSetup.exe",
+        assetUrl: "https://github.com/1192081163/order-quick-read/releases/download/v1.2.0/OrderQuickReadSetup.exe",
       },
       tempDir,
     );
@@ -167,6 +168,34 @@ describe("Electron updater", () => {
     expect(path.basename(downloadedPath)).toBe("OrderQuickReadSetup-1.exe");
     await expect(readFile(downloadedPath, "utf-8")).resolves.toBe("new-installer");
     await expect(readFile(path.join(tempDir, "OrderQuickReadSetup.exe"), "utf-8")).resolves.toBe("existing");
+  });
+
+  it("rejects update downloads outside the official GitHub repository", async () => {
+    await expect(
+      downloadUpdateAsset(
+        {
+          tagName: "v1.2.0",
+          releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/v1.2.0",
+          assetName: "OrderQuickReadSetup.exe",
+          assetUrl: "https://download.example/OrderQuickReadSetup.exe",
+        },
+        tempDir,
+      ),
+    ).rejects.toThrow("非官方地址");
+  });
+
+  it("rejects update downloads with an unexpected installer name", async () => {
+    await expect(
+      downloadUpdateAsset(
+        {
+          tagName: "v1.2.0",
+          releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/v1.2.0",
+          assetName: "other.exe",
+          assetUrl: "https://github.com/1192081163/order-quick-read/releases/download/v1.2.0/other.exe",
+        },
+        tempDir,
+      ),
+    ).rejects.toThrow("文件名不正确");
   });
 });
 

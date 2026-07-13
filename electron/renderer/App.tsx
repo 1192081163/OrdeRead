@@ -403,7 +403,7 @@ export function App() {
         return;
       }
 
-      const installerPath = await api.downloadUpdate(pendingUpdate);
+      const installerPath = await api.downloadUpdate();
       await api.installUpdate(installerPath);
       setIsUpdatePromptOpen(false);
       setStatus("已打开新版安装包，当前版本将关闭。安装完成后请重新打开订单快读。");

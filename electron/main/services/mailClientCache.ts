@@ -10,7 +10,11 @@ export class MailboxClientCache<TClient extends ClosableClient> {
   private client: TClient | null = null;
   private clientKey = "";
 
-  constructor(private readonly createClient: MailboxClientFactory<TClient>) {}
+  constructor(
+    private readonly createClient: MailboxClientFactory<TClient>,
+    private readonly reportBackgroundError: (error: unknown) => void = (error) =>
+      console.warn("关闭旧邮箱连接失败：", error),
+  ) {}
 
   get(settings: AppSettings): TClient {
     const email = settings.email.trim();
@@ -19,7 +23,7 @@ export class MailboxClientCache<TClient extends ClosableClient> {
       return this.client;
     }
 
-    void this.client?.close?.();
+    void this.client?.close?.().catch(this.reportBackgroundError);
     this.client = this.createClient(email, settings.authCode);
     this.clientKey = nextKey;
     return this.client;

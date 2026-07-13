@@ -11,10 +11,24 @@ type PackageMetadata = {
   repository?: string | { url?: string };
 };
 
+type GitHubRepository = {
+  owner: string;
+  name: string;
+};
+
 const packageJson = require("../../../package.json") as PackageMetadata;
 
 export const GITHUB_RELEASE_API_URL = githubReleaseApiUrlFromPackageJson(packageJson);
 const USER_AGENT = `OrderQuickRead/${packageJson.version ?? "0.1.0"}`;
+const OFFICIAL_REPOSITORY = githubRepositoryFromPackageJson(packageJson);
+const WINDOWS_ASSET_NAME = "OrderQuickReadSetup.exe";
+const MACOS_ARM64_ASSET_NAME = "OrderQuickRead-macos-arm64.dmg";
+const MACOS_X64_ASSET_NAME = "OrderQuickRead-macos-x64.dmg";
+const SUPPORTED_ASSET_NAMES = new Set([
+  WINDOWS_ASSET_NAME,
+  MACOS_ARM64_ASSET_NAME,
+  MACOS_X64_ASSET_NAME,
+]);
 
 type ReleaseAsset = {
   name?: unknown;
@@ -28,13 +42,18 @@ type ReleasePayload = {
 };
 
 export function githubReleaseApiUrlFromPackageJson(metadata: PackageMetadata): string {
+  const repository = githubRepositoryFromPackageJson(metadata);
+  return `https://api.github.com/repos/${repository.owner}/${repository.name}/releases/latest`;
+}
+
+function githubRepositoryFromPackageJson(metadata: PackageMetadata): GitHubRepository {
   const repository =
     typeof metadata.repository === "string" ? metadata.repository : stringValue(metadata.repository?.url).trim();
   const match = repository.match(/github\.com[:/]([^/\s]+)\/([^/\s#]+?)(?:\.git)?(?:[#?].*)?$/i);
   if (!match) {
     throw new Error("package.json repository must point to a GitHub repository for update checks.");
   }
-  return `https://api.github.com/repos/${match[1]}/${match[2]}/releases/latest`;
+  return { owner: match[1], name: match[2] };
 }
 
 export function selectReleaseAsset(
@@ -43,15 +62,15 @@ export function selectReleaseAsset(
   arch: string = process.arch,
 ): string {
   if (platformName === "win32") {
-    return assetNames.find((name) => name.toLowerCase().endsWith(".exe")) ?? "";
+    return assetNames.find((name) => name === WINDOWS_ASSET_NAME) ?? "";
   }
 
   if (platformName === "darwin" && arch === "arm64") {
-    return assetNames.find((name) => /arm64|apple-silicon|apple_silicon/i.test(name) && /\.dmg$/i.test(name)) ?? "";
+    return assetNames.find((name) => name === MACOS_ARM64_ASSET_NAME) ?? "";
   }
 
   if (platformName === "darwin") {
-    return assetNames.find((name) => /x64|x86_64|intel/i.test(name) && /\.dmg$/i.test(name)) ?? "";
+    return assetNames.find((name) => name === MACOS_X64_ASSET_NAME) ?? "";
   }
 
   return "";
@@ -121,6 +140,7 @@ export async function downloadUpdateAsset(update: UpdateInfo, downloadDir: strin
   if (!update.assetUrl || !update.assetName) {
     throw new Error("更新文件不存在，请打开 Release 页面手动下载。");
   }
+  assertOfficialReleaseAsset(update);
 
   await mkdir(downloadDir, { recursive: true });
   const targetPath = await uniquePath(path.join(downloadDir, update.assetName));
@@ -141,6 +161,38 @@ export async function downloadUpdateAsset(update: UpdateInfo, downloadDir: strin
     await rm(tempPath, { force: true });
   }
   return targetPath;
+}
+
+function assertOfficialReleaseAsset(update: Pick<UpdateInfo, "assetName" | "assetUrl">): void {
+  if (!SUPPORTED_ASSET_NAMES.has(update.assetName)) {
+    throw new Error("更新文件名不正确，已拒绝下载。");
+  }
+
+  let url: URL;
+  try {
+    url = new URL(update.assetUrl);
+  } catch {
+    throw new Error("更新下载地址无效，已拒绝下载。");
+  }
+
+  const segments = url.pathname
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => decodeURIComponent(segment));
+  const [owner, repository, releases, download] = segments;
+  const filename = segments.at(-1) ?? "";
+  if (
+    url.protocol !== "https:" ||
+    url.hostname.toLowerCase() !== "github.com" ||
+    owner?.toLowerCase() !== OFFICIAL_REPOSITORY.owner.toLowerCase() ||
+    repository?.toLowerCase() !== OFFICIAL_REPOSITORY.name.toLowerCase() ||
+    releases !== "releases" ||
+    download !== "download" ||
+    segments.length < 6 ||
+    filename !== update.assetName
+  ) {
+    throw new Error("更新文件来自非官方地址，已拒绝下载。");
+  }
 }
 
 async function uniquePath(filePath: string): Promise<string> {

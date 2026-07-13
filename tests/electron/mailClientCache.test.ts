@@ -36,4 +36,20 @@ describe("IMAP client cache", () => {
 
     expect(secondClose).toHaveBeenCalledTimes(1);
   });
+
+  it("reports a rejected background close without leaking an unhandled rejection", async () => {
+    const closeError = new Error("socket already closed");
+    const firstClose = vi.fn(async () => Promise.reject(closeError));
+    const reportBackgroundError = vi.fn();
+    const createClient = vi
+      .fn()
+      .mockReturnValueOnce({ close: firstClose })
+      .mockReturnValueOnce({ close: vi.fn(async () => undefined) });
+    const cache = new MailboxClientCache(createClient, reportBackgroundError);
+
+    cache.get({ email: "buyer@example.com", authCode: "old" });
+    cache.get({ email: "buyer@example.com", authCode: "new" });
+
+    await vi.waitFor(() => expect(reportBackgroundError).toHaveBeenCalledWith(closeError));
+  });
 });

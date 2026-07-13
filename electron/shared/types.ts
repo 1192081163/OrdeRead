@@ -89,6 +89,6 @@ export type RendererApi = {
   onBackfillStatus(handler: (status: BackgroundBackfillStatus) => void): () => void;
   clearCache(): Promise<void>;
   checkUpdates(): Promise<UpdateInfo | null>;
-  downloadUpdate(update: UpdateInfo): Promise<string>;
+  downloadUpdate(): Promise<string>;
   installUpdate(path: string): Promise<void>;
 };

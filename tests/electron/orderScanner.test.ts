@@ -352,6 +352,45 @@ describe("Electron order scanner", () => {
     });
   });
 
+  it("saves a same-range foreground scan without repeating it in the background", async () => {
+    const cachePath = path.join(tempDir, "order-cache.json");
+    const client = {
+      fetchExcelAttachmentBatch: vi.fn(async () => ({
+        attachments: [attachment("recent.xlsx", 18)],
+        scannedMessages: 1,
+        latestUid: 18,
+        uidvalidity: "abc",
+      })),
+    };
+    const parseAttachment = vi.fn(() => ({
+      filename: "recent.xlsx",
+      rows: [row("PO-RECENT", "2026-06-21", "recent.xlsx")],
+      warnings: [],
+    }));
+
+    const result = await scanOrders({
+      client,
+      parseAttachment,
+      fullScan: true,
+      cachePath,
+      accountEmail: "buyer@example.com",
+      sentStartDate: "2026-06-11",
+      sentEndDate: "2026-06-17",
+      backgroundBackfill: true,
+      backgroundSentStartDate: "2026-06-11",
+      backgroundSentEndDate: "2026-06-17",
+    });
+
+    expect(result.rows.map((item) => item.orderNumber)).toEqual(["PO-RECENT"]);
+    expect(client.fetchExcelAttachmentBatch).toHaveBeenCalledTimes(1);
+    await expect(readFile(cachePath, "utf-8").then(JSON.parse)).resolves.toMatchObject({
+      email: "buyer@example.com",
+      uidvalidity: "abc",
+      lastUid: 18,
+      rows: [row("PO-RECENT", "2026-06-21", "recent.xlsx")],
+    });
+  });
+
   it("keeps only rows inside the cache date window when saving a ranged background scan", async () => {
     const cachePath = path.join(tempDir, "order-cache.json");
     const client = {

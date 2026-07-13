@@ -203,18 +203,30 @@ describe("IPC contract", () => {
     );
   });
 
-  it("quits current app after update installer opens", async () => {
+  it("rechecks the update in the main process and quits after the downloaded installer opens", async () => {
     const handlers = new Map<string, Handler>();
     mockElectron(handlers);
     mockCommonServices();
 
     const { registerIpcHandlers } = await import("../../electron/main/ipc");
     const { app, shell } = await import("electron");
+    const { checkForElectronUpdate, downloadUpdateAsset } = await import("../../electron/main/services/updater.js");
+    const officialUpdate = {
+      tagName: "build-101",
+      releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/build-101",
+      assetName: "OrderQuickReadSetup.exe",
+      assetUrl: "https://github.com/1192081163/order-quick-read/releases/download/build-101/OrderQuickReadSetup.exe",
+    };
+    vi.mocked(checkForElectronUpdate).mockResolvedValue(officialUpdate);
+    vi.mocked(downloadUpdateAsset).mockResolvedValue("/tmp/OrderQuickReadSetup.exe");
     registerIpcHandlers();
-    const handler = handlers.get(IPC_CHANNELS.installUpdate);
+    const downloadHandler = handlers.get(IPC_CHANNELS.downloadUpdate);
+    const installHandler = handlers.get(IPC_CHANNELS.installUpdate);
 
-    await handler?.({}, "/tmp/OrderQuickReadSetup.exe");
+    await downloadHandler?.({}, { assetUrl: "https://evil.example/payload.exe" });
+    await installHandler?.({}, "/tmp/OrderQuickReadSetup.exe");
 
+    expect(downloadUpdateAsset).toHaveBeenCalledWith(officialUpdate, "/tmp/order-quick-read-test");
     expect(shell.openPath).toHaveBeenCalledWith("/tmp/OrderQuickReadSetup.exe");
     expect(app.quit).toHaveBeenCalledTimes(1);
   });
@@ -226,12 +238,38 @@ describe("IPC contract", () => {
 
     const { registerIpcHandlers } = await import("../../electron/main/ipc");
     const { app, shell } = await import("electron");
+    const { checkForElectronUpdate, downloadUpdateAsset } = await import("../../electron/main/services/updater.js");
+    vi.mocked(checkForElectronUpdate).mockResolvedValue({
+      tagName: "build-101",
+      releaseUrl: "https://github.com/1192081163/order-quick-read/releases/tag/build-101",
+      assetName: "OrderQuickReadSetup.exe",
+      assetUrl: "https://github.com/1192081163/order-quick-read/releases/download/build-101/OrderQuickReadSetup.exe",
+    });
+    vi.mocked(downloadUpdateAsset).mockResolvedValue("/tmp/OrderQuickReadSetup.exe");
     vi.mocked(shell.openPath).mockResolvedValue("permission denied");
+    registerIpcHandlers();
+    const downloadHandler = handlers.get(IPC_CHANNELS.downloadUpdate);
+    const installHandler = handlers.get(IPC_CHANNELS.installUpdate);
+
+    await downloadHandler?.({});
+    await expect(installHandler?.({}, "/tmp/OrderQuickReadSetup.exe")).rejects.toThrow("permission denied");
+
+    expect(app.quit).not.toHaveBeenCalled();
+  });
+
+  it("refuses to open an installer path that was not downloaded by the current app", async () => {
+    const handlers = new Map<string, Handler>();
+    mockElectron(handlers);
+    mockCommonServices();
+
+    const { registerIpcHandlers } = await import("../../electron/main/ipc");
+    const { app, shell } = await import("electron");
     registerIpcHandlers();
     const handler = handlers.get(IPC_CHANNELS.installUpdate);
 
-    await expect(handler?.({}, "/tmp/OrderQuickReadSetup.exe")).rejects.toThrow("permission denied");
+    await expect(handler?.({}, "/tmp/untrusted.exe")).rejects.toThrow("未经当前应用下载");
 
+    expect(shell.openPath).not.toHaveBeenCalled();
     expect(app.quit).not.toHaveBeenCalled();
   });
 });

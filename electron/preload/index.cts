@@ -1,4 +1,4 @@
-import type { AppSettings, BackgroundBackfillStatus, RendererApi, ScanOrdersRequest, UpdateInfo } from "../shared/types.js";
+import type { AppSettings, BackgroundBackfillStatus, RendererApi, ScanOrdersRequest } from "../shared/types.js";
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
@@ -24,7 +24,7 @@ const api: RendererApi = {
   },
   clearCache: () => ipcRenderer.invoke(IPC_CHANNELS.clearCache),
   checkUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.checkUpdates),
-  downloadUpdate: (update: UpdateInfo) => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate, update),
+  downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate),
   installUpdate: (path: string) => ipcRenderer.invoke(IPC_CHANNELS.installUpdate, path),
 };
 
