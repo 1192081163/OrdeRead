@@ -33,7 +33,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npm run electron:typecheck
@@ -57,9 +57,6 @@ jobs:
           node-version: "24"
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Cache Electron builder downloads
         uses: actions/cache@v4
         with:
@@ -69,6 +66,9 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
 
       - name: Stamp Electron build info
         run: node scripts/stamp_electron_build_info.mjs "build-${{ github.run_number }}"
@@ -83,6 +83,7 @@ jobs:
           name: OrderQuickReadSetup.exe
           path: dist-electron-packages/OrderQuickReadSetup.exe
           if-no-files-found: error
+          compression-level: 0
 
   publish-release:
     name: Publish Release

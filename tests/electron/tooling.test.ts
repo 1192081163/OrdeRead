@@ -48,6 +48,12 @@ describe("Electron tooling", () => {
     });
   });
 
+  it("limits the packaged payload to compiled runtime files", () => {
+    expect(packageJson.build.npmRebuild).toBe(false);
+    expect(packageJson.build.files).toEqual(["dist-renderer/**/*", "dist-electron/**/*", "package.json"]);
+    expect(packageJson.build.files).not.toContain("assets/**/*");
+  });
+
   it("declares open source project metadata", () => {
     expect((packageJson as { private?: unknown }).private).toBeUndefined();
     expect(packageJson.license).toBe("MIT");

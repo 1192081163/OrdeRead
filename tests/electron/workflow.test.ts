@@ -8,13 +8,14 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const workflow = readFileSync(path.join(repoRoot, ".github/workflows/build.yml"), "utf-8");
 const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf-8")) as {
   repository?: { url?: string };
-  build?: { compression?: string; electronLanguages?: string[] };
+  build?: { compression?: string; electronLanguages?: string[]; files?: string[]; npmRebuild?: boolean };
 };
 const giteePublisher = readFileSync(path.join(repoRoot, "scripts/publish-gitee-release.sh"), "utf-8");
 
 describe("GitHub Actions packaging workflow", () => {
   it("builds only the Windows Electron installer for now", () => {
-    expect(workflow).toContain("npm ci");
+    expect(workflow).toContain("npm ci --no-audit --no-fund");
+    expect(workflow).not.toMatch(/run: npm ci\s*$/m);
     expect(workflow).toContain("npm run electron:typecheck");
     expect(workflow).toContain("npm run electron:test");
     expect(workflow).toContain("npm run electron:build -- --win nsis --publish never");
@@ -24,12 +25,18 @@ describe("GitHub Actions packaging workflow", () => {
     expect(workflow).not.toContain("macos-15-intel");
     expect(workflow).not.toContain("scripts/build_windows.ps1");
     expect(workflow).not.toContain("scripts/build_macos.sh");
+
+    const cacheStep = workflow.indexOf("- name: Cache Electron builder downloads");
+    const buildInstallStep = workflow.lastIndexOf("run: npm ci --no-audit --no-fund");
+    expect(cacheStep).toBeGreaterThan(-1);
+    expect(cacheStep).toBeLessThan(buildInstallStep);
   });
 
   it("publishes the direct Windows installer release asset", () => {
     expect(workflow).toContain("dist-electron-packages/OrderQuickReadSetup.exe");
     expect(workflow).toContain("release-assets/OrderQuickReadSetup.exe#OrderQuickReadSetup.exe");
     expect(workflow).toContain("OrderQuickReadSetup.exe.sha256#OrderQuickReadSetup.exe.sha256");
+    expect(workflow.match(/compression-level: 0/g)).toHaveLength(1);
     expect(workflow).not.toContain(".dmg");
   });
 
@@ -54,5 +61,7 @@ describe("GitHub Actions packaging workflow", () => {
     expect(packageJson.repository?.url).toBe("git+https://github.com/1192081163/OrdeRead.git");
     expect(packageJson.build?.compression).toBe("maximum");
     expect(packageJson.build?.electronLanguages).toEqual(["en", "zh-CN"]);
+    expect(packageJson.build?.npmRebuild).toBe(false);
+    expect(packageJson.build?.files).toEqual(["dist-renderer/**/*", "dist-electron/**/*", "package.json"]);
   });
 });

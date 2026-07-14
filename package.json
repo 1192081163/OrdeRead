@@ -59,13 +59,13 @@
       "en",
       "zh-CN"
     ],
+    "npmRebuild": false,
     "directories": {
       "output": "dist-electron-packages"
     },
     "files": [
       "dist-renderer/**/*",
       "dist-electron/**/*",
-      "assets/**/*",
       "package.json"
     ],
     "win": {
