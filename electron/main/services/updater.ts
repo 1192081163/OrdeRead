@@ -273,7 +273,8 @@ function hasDownloadableAsset(update: UpdateInfo): boolean {
 }
 
 function releaseIsCurrent(latestTag: string): boolean {
-  if (CURRENT_RELEASE_TAG === "dev" || latestTag === CURRENT_RELEASE_TAG) {
+  const currentReleaseTag = String(CURRENT_RELEASE_TAG);
+  if (currentReleaseTag === "dev" || latestTag === currentReleaseTag) {
     return true;
   }
   const latestVersion = parseSemver(latestTag);
