@@ -172,7 +172,7 @@ jobs:
           GITEE_TARGET: ${{ github.sha }}
         run: |
           mkdir -p release-assets/gitee
-          split --bytes=8M --numeric-suffixes=0 --suffix-length=2 \
+          split --bytes=4M --numeric-suffixes=0 --suffix-length=2 \
             release-assets/OrderQuickReadSetup.exe \
             release-assets/gitee/OrderQuickReadSetup.exe.part-
           sha256sum release-assets/OrderQuickReadSetup.exe \

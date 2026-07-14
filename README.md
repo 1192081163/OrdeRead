@@ -106,7 +106,7 @@ dist-electron-packages/
 OrderQuickReadSetup.exe
 ```
 
-随后工作流会把 `main`、标签和 Windows 更新附件同步到 Gitee。Gitee 更新附件使用 8 MiB 分片并附带
+随后工作流会把 `main`、标签和 Windows 更新附件同步到 Gitee。Gitee 更新附件使用 4 MiB 分片并附带
 `OrderQuickReadSetup.exe.sha256`；全部附件上传成功后 Release 才会转为正式发布。Windows 用户可以直接使用应用内更新，
 也可以从 Release 页面下载完整的 `OrderQuickReadSetup.exe` 后双击安装。当前 GitHub Actions 只发布 Windows 安装包。
 
