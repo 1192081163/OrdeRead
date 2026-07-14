@@ -47,6 +47,7 @@ describe("GitHub Actions packaging workflow", () => {
     expect(giteePublisher).toContain("prerelease: false");
     expect(giteePublisher).toContain("asset_size >= 104857600");
     expect(giteePublisher).toContain('GITEE_UPLOAD_CONCURRENCY:-3');
+    expect(giteePublisher).toContain("upload_pids+set");
   });
 
   it("uses the canonical repository and maximum installer compression", () => {

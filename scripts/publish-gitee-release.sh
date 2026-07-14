@@ -99,6 +99,9 @@ wait_for_upload_batch() {
   local failed=0
   local pid
 
+  if [[ ${upload_pids+set} != set ]]; then
+    return 0
+  fi
   for pid in "${upload_pids[@]}"; do
     if ! wait "$pid"; then
       failed=1
