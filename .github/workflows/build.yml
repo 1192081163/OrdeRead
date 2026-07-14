@@ -173,9 +173,14 @@ jobs:
           GITEE_TARGET: ${{ github.sha }}
         run: |
           mkdir -p release-assets/gitee
-          split --bytes=4M --numeric-suffixes=0 --suffix-length=2 \
-            release-assets/OrderQuickReadSetup.exe \
-            release-assets/gitee/OrderQuickReadSetup.exe.part-
+          installer_size=$(wc -c < release-assets/OrderQuickReadSetup.exe | tr -d '[:space:]')
+          if (( installer_size < 104857600 )); then
+            cp release-assets/OrderQuickReadSetup.exe release-assets/gitee/OrderQuickReadSetup.exe
+          else
+            split --bytes=4M --numeric-suffixes=0 --suffix-length=2 \
+              release-assets/OrderQuickReadSetup.exe \
+              release-assets/gitee/OrderQuickReadSetup.exe.part-
+          fi
           sha256sum release-assets/OrderQuickReadSetup.exe \
             | awk '{print $1 "  OrderQuickReadSetup.exe"}' \
             > release-assets/gitee/OrderQuickReadSetup.exe.sha256

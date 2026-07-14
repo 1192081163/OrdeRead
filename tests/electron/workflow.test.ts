@@ -40,12 +40,15 @@ describe("GitHub Actions packaging workflow", () => {
     expect(workflow).not.toContain(".dmg");
   });
 
-  it("mirrors source and publishes verified 4 MiB Gitee update parts", () => {
+  it("mirrors source and publishes verified Gitee update assets", () => {
     expect(workflow).toContain("publish-gitee-release:");
     expect(workflow).toContain("GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}");
     expect(workflow).toContain("wei-dongyu_1_0/OrdeRead");
     expect(workflow).toContain("git -c http.version=HTTP/1.1 push gitee HEAD:main --tags --force");
     expect(workflow).toContain("timeout 180s");
+    expect(workflow).toContain("installer_size=$(wc -c < release-assets/OrderQuickReadSetup.exe");
+    expect(workflow).toContain("installer_size < 104857600");
+    expect(workflow).toContain("cp release-assets/OrderQuickReadSetup.exe release-assets/gitee/OrderQuickReadSetup.exe");
     expect(workflow).toContain("split --bytes=4M");
     expect(workflow).toContain("OrderQuickReadSetup.exe.sha256");
     expect(workflow).toContain("scripts/publish-gitee-release.sh");
