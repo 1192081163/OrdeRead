@@ -53,12 +53,12 @@ describe("Electron tooling", () => {
     expect(packageJson.license).toBe("MIT");
     expect(packageJson.repository).toMatchObject({
       type: "git",
-      url: "git+https://github.com/1192081163/order-quick-read.git",
+      url: "git+https://github.com/1192081163/OrdeRead.git",
     });
     expect(packageJson.bugs).toMatchObject({
-      url: "https://github.com/1192081163/order-quick-read/issues",
+      url: "https://github.com/1192081163/OrdeRead/issues",
     });
-    expect(packageJson.homepage).toBe("https://github.com/1192081163/order-quick-read#readme");
+    expect(packageJson.homepage).toBe("https://github.com/1192081163/OrdeRead#readme");
 
     for (const requiredPath of ["LICENSE", "SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"]) {
       expect(existsSync(path.join(repoRoot, requiredPath))).toBe(true);

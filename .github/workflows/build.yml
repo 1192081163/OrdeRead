@@ -101,6 +101,13 @@ jobs:
           name: OrderQuickReadSetup.exe
           path: release-assets
 
+      - name: Generate installer checksum
+        shell: bash
+        run: |
+          sha256sum release-assets/OrderQuickReadSetup.exe \
+            | awk '{print $1 "  OrderQuickReadSetup.exe"}' \
+            > release-assets/OrderQuickReadSetup.exe.sha256
+
       - name: Publish direct downloads
         shell: bash
         env:
@@ -109,6 +116,66 @@ jobs:
           tag="build-${GITHUB_RUN_NUMBER}"
           gh release create "$tag" \
             "release-assets/OrderQuickReadSetup.exe#OrderQuickReadSetup.exe" \
+            "release-assets/OrderQuickReadSetup.exe.sha256#OrderQuickReadSetup.exe.sha256" \
             --title "Order Quick Read ${tag}" \
             --notes "Windows: download OrderQuickReadSetup.exe and double-click to install." \
+            --target "$GITHUB_SHA" \
             --latest
+
+  publish-gitee-release:
+    name: Mirror Source and Publish Gitee Release
+    runs-on: ubuntu-latest
+    needs:
+      - publish-release
+    if: github.ref == 'refs/heads/main'
+    env:
+      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      GITEE_USERNAME: wei-dongyu_1_0
+      GITEE_REPOSITORY: wei-dongyu_1_0/OrdeRead
+      GIT_TERMINAL_PROMPT: 0
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Require Gitee release credentials
+        shell: bash
+        run: test -n "$GITEE_TOKEN"
+
+      - name: Mirror source and tags to Gitee
+        shell: bash
+        run: |
+          git fetch origin --force --tags
+          git remote add gitee "https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/${GITEE_REPOSITORY}.git"
+          pushed=false
+          for attempt in 1 2 3; do
+            if timeout 180s git -c http.version=HTTP/1.1 push gitee HEAD:main --tags --force; then
+              pushed=true
+              break
+            fi
+            echo "Gitee mirror attempt ${attempt} failed; retrying..." >&2
+          done
+          git remote remove gitee
+          test "$pushed" = true
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v8
+        with:
+          name: OrderQuickReadSetup.exe
+          path: release-assets
+
+      - name: Publish verified Gitee Windows release
+        shell: bash
+        env:
+          GITEE_TAG: build-${{ github.run_number }}
+          GITEE_TARGET: ${{ github.sha }}
+        run: |
+          mkdir -p release-assets/gitee
+          split --bytes=8M --numeric-suffixes=0 --suffix-length=2 \
+            release-assets/OrderQuickReadSetup.exe \
+            release-assets/gitee/OrderQuickReadSetup.exe.part-
+          sha256sum release-assets/OrderQuickReadSetup.exe \
+            | awk '{print $1 "  OrderQuickReadSetup.exe"}' \
+            > release-assets/gitee/OrderQuickReadSetup.exe.sha256
+          bash ./scripts/publish-gitee-release.sh release-assets/gitee/*

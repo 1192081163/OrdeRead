@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/1192081163/order-quick-read.git"
+    "url": "git+https://github.com/1192081163/OrdeRead.git"
   },
   "bugs": {
-    "url": "https://github.com/1192081163/order-quick-read/issues"
+    "url": "https://github.com/1192081163/OrdeRead/issues"
   },
-  "homepage": "https://github.com/1192081163/order-quick-read#readme",
+  "homepage": "https://github.com/1192081163/OrdeRead#readme",
   "type": "module",
   "main": "dist-electron/main/app.js",
   "scripts": {
@@ -54,6 +54,11 @@
   "build": {
     "productName": "Order Quick Read",
     "appId": "com.orderquickread.desktop",
+    "compression": "maximum",
+    "electronLanguages": [
+      "en",
+      "zh-CN"
+    ],
     "directories": {
       "output": "dist-electron-packages"
     },

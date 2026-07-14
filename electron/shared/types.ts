@@ -59,6 +59,11 @@ export type UpdateInfo = {
   releaseUrl: string;
   assetName: string;
   assetUrl: string;
+  assetParts?: Array<{
+    assetName: string;
+    assetUrl: string;
+  }>;
+  checksumUrl?: string;
 };
 
 export const IPC_CHANNELS = {
