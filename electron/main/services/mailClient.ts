@@ -5,6 +5,9 @@ import type { ScanMetrics } from "../../shared/types.js";
 
 const SUPPORTED_EXCEL_EXTENSION = /\.(xlsx|xlsm|xls)$/i;
 const MAX_ATTACHMENT_DOWNLOADS = 3;
+const IMAP_CONNECTION_TIMEOUT_MS = 10_000;
+const IMAP_GREETING_TIMEOUT_MS = 10_000;
+const IMAP_SOCKET_TIMEOUT_MS = 120_000;
 
 export const ENTERPRISE_WECHAT_IMAP_HOST = "imap.exmail.qq.com";
 
@@ -218,7 +221,7 @@ export class ImapAttachmentClient implements AttachmentClient {
       })
       .catch((error: unknown) => {
         this.client = null;
-        throw new Error(formatLoginError(error));
+        throw loginError(error);
       })
       .finally(() => {
         this.connecting = null;
@@ -233,6 +236,9 @@ export class ImapAttachmentClient implements AttachmentClient {
       port: this.config.port ?? 993,
       secure: this.config.secure ?? true,
       logger: false,
+      connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+      greetingTimeout: IMAP_GREETING_TIMEOUT_MS,
+      socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
       auth: {
         user: this.config.email,
         pass: this.config.authCode,
@@ -401,7 +407,7 @@ function nowMs(): number {
 }
 
 function isTransientMailError(error: unknown): boolean {
-  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const code = errorCode(error);
   if (["ETIMEOUT", "ETIMEDOUT", "ECONNRESET", "EPIPE", "EHOSTUNREACH"].includes(code)) {
     return true;
   }
@@ -541,6 +547,16 @@ function formatLoginError(error: unknown): string {
   }
 
   return `邮箱登录失败：${rawMessage}`;
+}
+
+function loginError(error: unknown): Error {
+  const wrappedError = new Error(formatLoginError(error), { cause: error });
+  const code = errorCode(error);
+  return code ? Object.assign(wrappedError, { code }) : wrappedError;
+}
+
+function errorCode(error: unknown): string {
+  return typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
 }
 
 function exceptionText(error: unknown): string {

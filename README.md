@@ -40,31 +40,6 @@ macOS/Linux: ~/.email-order-reader/settings.json
 
 授权码是本地 JSON 保存，不写入系统钥匙串。
 
-## 远端邮件服务
-
-如果已部署 R004 的 `orderflow-email-api` 服务，订单快读会优先调用服务器接口：
-
-- `POST /api/email/messages`
-- `POST /api/email/extract`
-
-客户端配置使用 R004 相同格式，优先级如下：
-
-1. 环境变量 `ORDERFLOW_EMAIL_API_URL` 和 `ORDERFLOW_EMAIL_API_TOKEN`
-2. 应用数据目录中的 `email_api_client.json`
-3. `~/.order_organizer_assistant/email_api_client.json`
-4. 打包资源目录中的 `config/remote-email-api.json`
-
-配置示例：
-
-```json
-{
-  "baseUrl": "https://your-email-api.example.com",
-  "token": "your-api-token"
-}
-```
-
-配置远端服务后，客户端不需要保存企业邮箱授权码。
-
 ## 开发
 
 ```bash

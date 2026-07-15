@@ -44,7 +44,7 @@ const RECENT_SCAN_DAYS = 7;
 const MAX_SCAN_DAYS = 7;
 
 function hasCompleteSettings(settings: AppSettings): boolean {
-  return Boolean(settings.remoteEmailApi?.configured || (settings.email.trim() && settings.authCode));
+  return Boolean(settings.email.trim() && settings.authCode);
 }
 
 function statusFromError(error: unknown): string {
@@ -187,12 +187,12 @@ export function App() {
       setSettings(loadedSettings);
       if (hasCompleteSettings(loadedSettings)) {
         setEditingSettings(false);
-        setStatus(loadedSettings.remoteEmailApi?.configured ? "已连接远端邮件服务。" : "已加载邮件读取设置。");
+        setStatus("已加载邮件读取设置。");
         return;
       }
 
       setEditingSettings(true);
-      setStatus("请填写本地邮箱授权码，或配置远端邮件服务。");
+      setStatus("请填写企业微信邮箱和授权码。");
       } catch (error) {
         if (isMounted) {
           setStatus(statusFromError(error));
@@ -261,18 +261,11 @@ export function App() {
     const nextSettings: AppSettings = {
       email: settings.email.trim(),
       authCode: settings.authCode,
-      remoteEmailApi: settings.remoteEmailApi,
     };
-
-    if (settings.remoteEmailApi?.configured && !settings.authCode) {
-      setEditingSettings(false);
-      setStatus("已连接远端邮件服务。");
-      return true;
-    }
 
     if (!hasCompleteSettings(nextSettings)) {
       setEditingSettings(true);
-      setStatus("请填写本地邮箱授权码，或配置远端邮件服务。");
+      setStatus("请填写企业微信邮箱和授权码。");
       return false;
     }
 
@@ -304,7 +297,7 @@ export function App() {
 
     if (!hasCompleteSettings(settings)) {
       setEditingSettings(true);
-      setStatus("请填写本地邮箱授权码，或配置远端邮件服务。");
+      setStatus("请填写企业微信邮箱和授权码。");
       return false;
     }
 

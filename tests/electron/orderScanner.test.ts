@@ -46,6 +46,7 @@ const mailMocks = vi.hoisted(() => {
     uidValidity: 123n,
     uidNext: 10,
     connectError: null as Error | null,
+    queuedConnectErrors: [] as Error[],
     downloads: new Map<string, Buffer>(),
     beforeDownloadMany: null as null | ((range: string, parts: string[]) => Promise<void>),
     ImapFlow: vi.fn(function ImapFlow(options: unknown) {
@@ -53,8 +54,9 @@ const mailMocks = vi.hoisted(() => {
       const client: MockClient = {
         on: vi.fn(),
         connect: vi.fn(async () => {
-          if (state.connectError) {
-            throw state.connectError;
+          const connectError = state.queuedConnectErrors.shift() ?? state.connectError;
+          if (connectError) {
+            throw connectError;
           }
         }),
         getMailboxLock: vi.fn(async () => ({ release })),
@@ -97,6 +99,7 @@ beforeEach(async () => {
   mailMocks.uidValidity = 123n;
   mailMocks.uidNext = 10;
   mailMocks.connectError = null;
+  mailMocks.queuedConnectErrors = [];
   mailMocks.downloads = new Map();
   mailMocks.beforeDownloadMany = null;
   mailMocks.ImapFlow.mockClear();
@@ -756,6 +759,9 @@ describe("IMAP attachment client", () => {
         host: "imap.example.com",
         port: 1993,
         secure: true,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 120_000,
         auth: { user: "buyer@example.com", pass: "secret" },
       }),
     );
@@ -1043,6 +1049,29 @@ describe("IMAP attachment client", () => {
     expect(mailMocks.ImapFlow).toHaveBeenCalledTimes(2);
     expect(mailMocks.clients[0].client.logout).toHaveBeenCalledTimes(1);
     expect(mailMocks.clients[1].client.downloadMany).toHaveBeenCalledWith("7", ["2"], { uid: true });
+  });
+
+  it("retries a TLS handshake reset once on a fresh connection", async () => {
+    mailMocks.uidNext = 2;
+    mailMocks.queuedConnectErrors = [
+      Object.assign(new Error("Client network socket disconnected before secure TLS connection was established"), {
+        code: "ECONNRESET",
+      }),
+    ];
+
+    const { ImapAttachmentClient } = await import("../../electron/main/services/mailClient");
+    const client = new ImapAttachmentClient({
+      email: "buyer@example.com",
+      authCode: "secret",
+      host: "imap.example.com",
+    });
+
+    const result = await client.fetchExcelAttachmentBatch({});
+
+    expect(result.attachments).toEqual([]);
+    expect(mailMocks.ImapFlow).toHaveBeenCalledTimes(2);
+    expect(mailMocks.clients[0].client.connect).toHaveBeenCalledTimes(1);
+    expect(mailMocks.clients[1].client.connect).toHaveBeenCalledTimes(1);
   });
 
   it("starts attachment downloads from multiple messages concurrently", async () => {

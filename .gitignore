@@ -20,6 +20,5 @@ dist-renderer/
 dist-electron/
 dist-electron-packages/
 coverage/
-resources/remote-email-api.json
 .codegraph
 .codegraph/

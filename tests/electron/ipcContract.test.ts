@@ -12,7 +12,6 @@ afterEach(() => {
   vi.doUnmock("../../electron/main/services/mailClient.js");
   vi.doUnmock("../../electron/main/services/mailClientCache.js");
   vi.doUnmock("../../electron/main/services/notifier.js");
-  vi.doUnmock("../../electron/main/services/remoteEmailApi.js");
   vi.doUnmock("../../electron/main/services/updater.js");
 });
 
@@ -77,7 +76,7 @@ describe("IPC contract", () => {
     });
   });
 
-  it("forwards scan background backfill requests to the local scanner when remote API is not configured", async () => {
+  it("forwards scan background backfill requests to the local scanner", async () => {
     const handlers = new Map<string, Handler>();
     const scanOrders = vi.fn(async () => ({
       rows: [],
@@ -91,16 +90,6 @@ describe("IPC contract", () => {
     mockElectron(handlers);
     mockCommonServices();
     vi.doMock("../../electron/main/services/orderScanner.js", () => ({ scanOrders }));
-    vi.doMock("../../electron/main/services/remoteEmailApi.js", async () => {
-      const actual = await vi.importActual<typeof import("../../electron/main/services/remoteEmailApi")>(
-        "../../electron/main/services/remoteEmailApi",
-      );
-      return {
-        ...actual,
-        loadRemoteEmailApiConfig: vi.fn(async () => undefined),
-        scanRemoteOrders: vi.fn(),
-      };
-    });
 
     const { registerIpcHandlers } = await import("../../electron/main/ipc");
     registerIpcHandlers();
@@ -149,57 +138,20 @@ describe("IPC contract", () => {
     });
   });
 
-  it("uses the remote email API instead of local IMAP when configured", async () => {
+  it("reports the local IMAP endpoint when the company network blocks the mailbox connection", async () => {
     const handlers = new Map<string, Handler>();
-    const scanOrders = vi.fn();
-    const scanRemoteOrders = vi.fn(async () => ({
-      rows: [],
-      warnings: [],
-      scannedMessages: 1,
-      parsedAttachments: 1,
-      scanMode: "full" as const,
-    }));
+    const scanOrders = vi.fn(async () => Promise.reject(new Error("邮箱登录失败：connect ETIMEDOUT")));
 
     mockElectron(handlers);
-    mockCommonServices({ email: "", authCode: "" });
+    mockCommonServices();
     vi.doMock("../../electron/main/services/orderScanner.js", () => ({ scanOrders }));
-    vi.doMock("../../electron/main/services/remoteEmailApi.js", async () => {
-      const actual = await vi.importActual<typeof import("../../electron/main/services/remoteEmailApi")>(
-        "../../electron/main/services/remoteEmailApi",
-      );
-      return {
-        ...actual,
-        loadRemoteEmailApiConfig: vi.fn(async () => ({ baseUrl: "https://api.example", token: "secret" })),
-        scanRemoteOrders,
-      };
-    });
 
     const { registerIpcHandlers } = await import("../../electron/main/ipc");
     registerIpcHandlers();
-    const handler = handlers.get(IPC_CHANNELS.scanOrders);
+    const scan = handlers.get(IPC_CHANNELS.scanOrders)?.({ sender: { send: vi.fn() } }, { fullScan: false });
 
-    await handler?.(
-      { sender: { send: vi.fn() } },
-      {
-        fullScan: true,
-        includeMetrics: true,
-        sentStartDate: "2026-06-11",
-        sentEndDate: "2026-06-17",
-      },
-    );
-
-    expect(scanOrders).not.toHaveBeenCalled();
-    expect(scanRemoteOrders).toHaveBeenCalledWith(
-      expect.objectContaining({
-        request: expect.objectContaining({
-          fullScan: true,
-          includeMetrics: true,
-          sentStartDate: "2026-06-11",
-          sentEndDate: "2026-06-17",
-        }),
-        cachePath: "/tmp/order-quick-read-test/order_cache.json",
-        accountEmail: "远端邮件服务",
-      }),
+    await expect(scan).rejects.toThrow(
+      /请让公司 IT 放行 imap\.exmail\.qq\.com:993，或检查邮箱授权码/,
     );
   });
 

@@ -67,20 +67,6 @@ describe("Electron renderer", () => {
     expect(screen.queryByLabelText("邮箱")).not.toBeInTheDocument();
   });
 
-  it("collapses settings when remote email API is configured", async () => {
-    vi.mocked(api.loadSettings).mockResolvedValue({
-      email: "远端邮件服务",
-      authCode: "",
-      remoteEmailApi: { configured: true, baseUrl: "https://api.example" },
-    });
-
-    render(<App />);
-
-    expect(await screen.findByText("远端邮件服务")).toBeInTheDocument();
-    expect(screen.queryByLabelText("邮箱")).not.toBeInTheDocument();
-    expect(await screen.findByText("已连接远端邮件服务。")).toBeInTheDocument();
-  });
-
   it("does not show the enterprise mailbox subtitle in settings", async () => {
     render(<App />);
 
