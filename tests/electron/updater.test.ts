@@ -8,8 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { countOrderChanges } from "../../electron/main/services/notifier";
 import {
   checkForElectronUpdate,
+  DOWNLOAD_RELEASE_API_URL,
   downloadUpdateAsset,
-  GITEE_RELEASE_API_URL,
   GITHUB_RELEASE_API_URL,
   githubReleaseApiUrlFromPackageJson,
   RELEASE_API_URLS,
@@ -17,7 +17,6 @@ import {
   updateInfoFromReleasePayload,
   WINDOWS_ASSET_NAME,
   WINDOWS_CHECKSUM_ASSET_NAME,
-  WINDOWS_PART_ASSET_PREFIX,
 } from "../../electron/main/services/updater";
 import type { OrderRow } from "../../electron/shared/types";
 
@@ -43,10 +42,10 @@ function row(orderNumber: string, deadline: string): OrderRow {
 }
 
 describe("Electron updater", () => {
-  it("uses Gitee first and the canonical GitHub repository as fallback", () => {
-    expect(GITEE_RELEASE_API_URL).toBe("https://gitee.com/api/v5/repos/wei-dongyu_1_0/OrdeRead/releases/latest");
+  it("uses the AUSMET download server first and the canonical GitHub repository as fallback", () => {
+    expect(DOWNLOAD_RELEASE_API_URL).toBe("https://download.ausmet.ai/orderead/latest.json");
     expect(GITHUB_RELEASE_API_URL).toBe("https://api.github.com/repos/1192081163/OrdeRead/releases/latest");
-    expect(RELEASE_API_URLS).toEqual([GITEE_RELEASE_API_URL, GITHUB_RELEASE_API_URL]);
+    expect(RELEASE_API_URLS).toEqual([DOWNLOAD_RELEASE_API_URL, GITHUB_RELEASE_API_URL]);
   });
 
   it("bounds both update sources so blocked networks do not hang the app", async () => {
@@ -64,7 +63,7 @@ describe("Electron updater", () => {
     }
   });
 
-  it("checks Gitee before GitHub", async () => {
+  it("checks the AUSMET download server before GitHub", async () => {
     const urls: string[] = [];
     const result = await checkForElectronUpdate(async (url) => {
       urls.push(String(url));
@@ -74,14 +73,14 @@ describe("Electron updater", () => {
     });
 
     expect(result).toBeNull();
-    expect(urls).toEqual([GITEE_RELEASE_API_URL]);
+    expect(urls).toEqual([DOWNLOAD_RELEASE_API_URL]);
   });
 
-  it("falls back to GitHub when Gitee is unavailable", async () => {
+  it("falls back to GitHub when the AUSMET download server is unavailable", async () => {
     const urls: string[] = [];
     const result = await checkForElectronUpdate(async (url) => {
       urls.push(String(url));
-      if (String(url) === GITEE_RELEASE_API_URL) {
+      if (String(url) === DOWNLOAD_RELEASE_API_URL) {
         return new Response("unavailable", { status: 503 });
       }
       return new Response(JSON.stringify({ tag_name: "v0.1.0", assets: [] }), {
@@ -90,7 +89,7 @@ describe("Electron updater", () => {
     });
 
     expect(result).toBeNull();
-    expect(urls).toEqual([GITEE_RELEASE_API_URL, GITHUB_RELEASE_API_URL]);
+    expect(urls).toEqual([DOWNLOAD_RELEASE_API_URL, GITHUB_RELEASE_API_URL]);
   });
 
   it("derives release API URLs from package repository metadata", () => {
@@ -121,23 +120,20 @@ describe("Electron updater", () => {
     );
   });
 
-  it("returns update info for newer releases and prefers the complete installer", () => {
+  it("returns update info for a complete installer from the AUSMET download server", () => {
+    const baseUrl = "https://download.ausmet.ai/orderead/releases/build-26";
     const update = updateInfoFromReleasePayload(
       {
         tag_name: "build-26",
-        html_url: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/build-26",
+        html_url: `${baseUrl}/`,
         assets: [
           {
-            name: `${WINDOWS_PART_ASSET_PREFIX}00`,
-            browser_download_url: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/part-00",
-          },
-          {
             name: WINDOWS_CHECKSUM_ASSET_NAME,
-            browser_download_url: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_CHECKSUM_ASSET_NAME}`,
+            browser_download_url: `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}`,
           },
           {
             name: WINDOWS_ASSET_NAME,
-            browser_download_url: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_ASSET_NAME}`,
+            browser_download_url: `${baseUrl}/${WINDOWS_ASSET_NAME}`,
           },
         ],
       },
@@ -146,52 +142,22 @@ describe("Electron updater", () => {
 
     expect(update).toEqual({
       tagName: "build-26",
-      releaseUrl: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/build-26",
+      releaseUrl: `${baseUrl}/`,
       assetName: WINDOWS_ASSET_NAME,
-      assetUrl: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_ASSET_NAME}`,
-      checksumUrl: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_CHECKSUM_ASSET_NAME}`,
-    });
-  });
-
-  it("uses complete ordered parts and checksum when Gitee has no complete installer", () => {
-    const baseUrl = "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26";
-    const update = updateInfoFromReleasePayload(
-      {
-        tag_name: "build-26",
-        assets: [
-          { name: `${WINDOWS_PART_ASSET_PREFIX}01`, browser_download_url: `${baseUrl}/${WINDOWS_PART_ASSET_PREFIX}01` },
-          { name: WINDOWS_CHECKSUM_ASSET_NAME, browser_download_url: `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}` },
-          { name: `${WINDOWS_PART_ASSET_PREFIX}00`, browser_download_url: `${baseUrl}/${WINDOWS_PART_ASSET_PREFIX}00` },
-        ],
-      },
-      { currentReleaseTag: "build-25", currentVersion: "0.1.0", platformName: "win32", arch: "x64" },
-    );
-
-    expect(update).toMatchObject({
-      tagName: "build-26",
-      assetName: WINDOWS_ASSET_NAME,
-      assetUrl: "",
+      assetUrl: `${baseUrl}/${WINDOWS_ASSET_NAME}`,
       checksumUrl: `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}`,
-      assetParts: [
-        { assetName: `${WINDOWS_PART_ASSET_PREFIX}00` },
-        { assetName: `${WINDOWS_PART_ASSET_PREFIX}01` },
-      ],
     });
   });
 
-  it("does not use incomplete multipart releases", () => {
+  it("ignores fragmented legacy installers", () => {
+    const baseUrl = "https://download.example/releases/build-26";
     const update = updateInfoFromReleasePayload(
       {
         tag_name: "build-26",
         assets: [
-          {
-            name: `${WINDOWS_PART_ASSET_PREFIX}01`,
-            browser_download_url: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_PART_ASSET_PREFIX}01`,
-          },
-          {
-            name: WINDOWS_CHECKSUM_ASSET_NAME,
-            browser_download_url: `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-26/${WINDOWS_CHECKSUM_ASSET_NAME}`,
-          },
+          { name: `${WINDOWS_ASSET_NAME}.part-01`, browser_download_url: `${baseUrl}/${WINDOWS_ASSET_NAME}.part-01` },
+          { name: WINDOWS_CHECKSUM_ASSET_NAME, browser_download_url: `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}` },
+          { name: `${WINDOWS_ASSET_NAME}.part-00`, browser_download_url: `${baseUrl}/${WINDOWS_ASSET_NAME}.part-00` },
         ],
       },
       { currentReleaseTag: "build-25", currentVersion: "0.1.0", platformName: "win32", arch: "x64" },
@@ -267,17 +233,17 @@ describe("Electron updater", () => {
     await expect(readFile(path.join(tempDir, WINDOWS_ASSET_NAME), "utf-8")).resolves.toBe("existing");
   });
 
-  it("downloads and verifies a complete installer from the official Gitee repository", async () => {
-    const content = Buffer.from("gitee-installer");
+  it("downloads and verifies a complete installer from the AUSMET download server", async () => {
+    const content = Buffer.from("ausmet-installer");
     const checksum = createHash("sha256").update(content).digest("hex");
-    const baseUrl = "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-44";
+    const baseUrl = "https://download.ausmet.ai/orderead/releases/build-44";
     const assetUrl = `${baseUrl}/${WINDOWS_ASSET_NAME}`;
     const checksumUrl = `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}`;
 
     const downloadedPath = await downloadUpdateAsset(
       {
         tagName: "build-44",
-        releaseUrl: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/build-44",
+        releaseUrl: `${baseUrl}/`,
         assetName: WINDOWS_ASSET_NAME,
         assetUrl,
         checksumUrl,
@@ -287,65 +253,31 @@ describe("Electron updater", () => {
         new Response(String(url) === checksumUrl ? `${checksum}  ${WINDOWS_ASSET_NAME}\n` : content),
     );
 
-    await expect(readFile(downloadedPath, "utf-8")).resolves.toBe("gitee-installer");
+    await expect(readFile(downloadedPath, "utf-8")).resolves.toBe("ausmet-installer");
   });
 
-  it("downloads, joins, and verifies multipart Gitee updates", async () => {
-    const partContents = [Buffer.from("gitee "), Buffer.from("installer")];
-    const checksum = createHash("sha256").update(Buffer.concat(partContents)).digest("hex");
-    const baseUrl = "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-44";
+  it("rejects an AUSMET installer when its checksum does not match", async () => {
+    const baseUrl = "https://download.ausmet.ai/orderead/releases/build-44";
+    const assetUrl = `${baseUrl}/${WINDOWS_ASSET_NAME}`;
     const checksumUrl = `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}`;
-    const assetParts = partContents.map((_content, index) => ({
-      assetName: `${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}`,
-      assetUrl: `${baseUrl}/${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}`,
-    }));
-
-    const downloadedPath = await downloadUpdateAsset(
-      {
-        tagName: "build-44",
-        releaseUrl: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/build-44",
-        assetName: WINDOWS_ASSET_NAME,
-        assetUrl: "",
-        assetParts,
-        checksumUrl,
-      },
-      tempDir,
-      async (url) => {
-        if (String(url) === checksumUrl) {
-          return new Response(`${checksum}  ${WINDOWS_ASSET_NAME}\n`);
-        }
-        const index = assetParts.findIndex((part) => part.assetUrl === String(url));
-        return new Response(partContents[index]);
-      },
-    );
-
-    await expect(readFile(downloadedPath, "utf-8")).resolves.toBe("gitee installer");
-    await expect(access(`${downloadedPath}.download`)).rejects.toBeTruthy();
-  });
-
-  it("rejects multipart updates when the checksum does not match", async () => {
-    const baseUrl = "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/download/build-44";
-    const checksumUrl = `${baseUrl}/${WINDOWS_CHECKSUM_ASSET_NAME}`;
-    const assetParts = [0, 1].map((index) => ({
-      assetName: `${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}`,
-      assetUrl: `${baseUrl}/${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}`,
-    }));
 
     await expect(
       downloadUpdateAsset(
         {
           tagName: "build-44",
-          releaseUrl: "https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/build-44",
+          releaseUrl: `${baseUrl}/`,
           assetName: WINDOWS_ASSET_NAME,
-          assetUrl: "",
-          assetParts,
+          assetUrl,
           checksumUrl,
         },
         tempDir,
         async (url) =>
-          new Response(String(url) === checksumUrl ? `${"0".repeat(64)}  ${WINDOWS_ASSET_NAME}\n` : "content"),
+          new Response(String(url) === checksumUrl ? `${"0".repeat(64)}  ${WINDOWS_ASSET_NAME}\n` : "tampered"),
       ),
     ).rejects.toThrow("校验失败");
+
+    await expect(access(path.join(tempDir, WINDOWS_ASSET_NAME))).rejects.toBeTruthy();
+    await expect(access(path.join(tempDir, `${WINDOWS_ASSET_NAME}.download`))).rejects.toBeTruthy();
   });
 
   it("rejects update downloads outside the official repositories", async () => {
