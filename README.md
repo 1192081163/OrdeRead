@@ -4,10 +4,9 @@ Order Quick Read is a minimal Electron desktop app for reading Enterprise WeChat
 
 ## 下载与更新
 
-国内用户优先使用 [Gitee Release](https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/latest)，GitHub
+国内用户优先使用 [AUSMET 下载站](https://download.ausmet.ai/orderead/)，GitHub
 [Latest Release](https://github.com/1192081163/OrdeRead/releases/latest) 作为备用入口。应用检查更新时会先访问
-Gitee；如果 Gitee 不可用或附件不完整，再自动回退 GitHub。Gitee 上的大安装包会拆成带 SHA-256 校验的连续分片，
-应用会自动下载、合并和验证，用户不需要手动处理分片。
+AUSMET 下载站；如果下载站不可用，再自动回退 GitHub。安装包附带 SHA-256 校验，应用下载后会先验证再打开。
 
 ## 功能
 
@@ -18,7 +17,7 @@ Gitee；如果 Gitee 不可用或附件不完整，再自动回退 GitHub。Gite
 - 邮箱和授权码保存到本机，启动后自动填入；配置完整后设置区自动收起。
 - 每 30 秒自动刷新新邮件，也可以手动刷新或扫描全部邮件。
 - 发现新增订单或截止时间变化时发出系统通知。
-- 启动时静默检查 Gitee/GitHub Release，也可以点击 `检查更新`；发现新版后下载、校验并打开安装包。
+- 启动时静默检查 AUSMET 下载站和 GitHub Release，也可以点击 `检查更新`；发现新版后下载、校验并打开安装包。
 
 ## 本地数据
 
@@ -73,7 +72,7 @@ npm run electron:dist
 dist-electron-packages/
 ```
 
-## CI、发布与国内镜像
+## CI 与发布
 
 推送到 `main` 后，GitHub Actions 会测试、构建并发布：
 
@@ -81,9 +80,9 @@ dist-electron-packages/
 OrderQuickReadSetup.exe
 ```
 
-随后工作流会把 `main`、标签和 Windows 更新附件同步到 Gitee。Gitee 更新附件使用 4 MiB 分片并附带
-`OrderQuickReadSetup.exe.sha256`；全部附件上传成功后 Release 才会转为正式发布。Windows 用户可以直接使用应用内更新，
-也可以从 Release 页面下载完整的 `OrderQuickReadSetup.exe` 后双击安装。当前 GitHub Actions 只发布 Windows 安装包。
+工作流会同时创建 GitHub Latest Release，并把完整安装包、`OrderQuickReadSetup.exe.sha256`、版本清单和下载页面
+自动发布到 AUSMET 下载站。Windows 用户可以直接使用应用内更新，也可以从下载页面获取
+`OrderQuickReadSetup.exe` 后双击安装。当前 GitHub Actions 只发布 Windows 安装包。
 
 ## 安全说明
 

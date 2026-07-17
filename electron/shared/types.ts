@@ -55,10 +55,6 @@ export type UpdateInfo = {
   releaseUrl: string;
   assetName: string;
   assetUrl: string;
-  assetParts?: Array<{
-    assetName: string;
-    assetUrl: string;
-  }>;
   checksumUrl?: string;
 };
 

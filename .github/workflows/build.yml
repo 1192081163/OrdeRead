@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 concurrency:
@@ -16,7 +20,7 @@ env:
   CSC_IDENTITY_AUTO_DISCOVERY: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test-electron:
@@ -43,6 +47,7 @@ jobs:
 
   build-windows:
     name: Build Windows Installer
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
@@ -92,6 +97,8 @@ jobs:
       - test-electron
       - build-windows
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
       - name: Check out code
         uses: actions/checkout@v6
@@ -123,42 +130,16 @@ jobs:
             --target "$GITHUB_SHA" \
             --latest
 
-  publish-gitee-release:
-    name: Mirror Source and Publish Gitee Release
+  publish-download-server:
+    name: Publish AUSMET Download
     runs-on: ubuntu-latest
     needs:
-      - publish-release
+      - test-electron
+      - build-windows
     if: github.ref == 'refs/heads/main'
-    env:
-      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-      GITEE_USERNAME: wei-dongyu_1_0
-      GITEE_REPOSITORY: wei-dongyu_1_0/OrdeRead
-      GIT_TERMINAL_PROMPT: 0
     steps:
-      - name: Check out full history
+      - name: Check out code
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Require Gitee release credentials
-        shell: bash
-        run: test -n "$GITEE_TOKEN"
-
-      - name: Mirror source and tags to Gitee
-        shell: bash
-        run: |
-          git fetch origin --force --tags
-          git remote add gitee "https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/${GITEE_REPOSITORY}.git"
-          pushed=false
-          for attempt in 1 2 3; do
-            if timeout 180s git -c http.version=HTTP/1.1 push gitee HEAD:main --tags --force; then
-              pushed=true
-              break
-            fi
-            echo "Gitee mirror attempt ${attempt} failed; retrying..." >&2
-          done
-          git remote remove gitee
-          test "$pushed" = true
 
       - name: Download Windows installer
         uses: actions/download-artifact@v8
@@ -166,22 +147,25 @@ jobs:
           name: OrderQuickReadSetup.exe
           path: release-assets
 
-      - name: Publish verified Gitee Windows release
+      - name: Configure download server SSH
         shell: bash
         env:
-          GITEE_TAG: build-${{ github.run_number }}
-          GITEE_TARGET: ${{ github.sha }}
+          DOWNLOAD_SSH_PRIVATE_KEY: ${{ secrets.DOWNLOAD_SSH_PRIVATE_KEY }}
+          DOWNLOAD_SSH_KNOWN_HOSTS: ${{ secrets.DOWNLOAD_SSH_KNOWN_HOSTS }}
         run: |
-          mkdir -p release-assets/gitee
-          installer_size=$(wc -c < release-assets/OrderQuickReadSetup.exe | tr -d '[:space:]')
-          if (( installer_size < 104857600 )); then
-            cp release-assets/OrderQuickReadSetup.exe release-assets/gitee/OrderQuickReadSetup.exe
-          else
-            split --bytes=4M --numeric-suffixes=0 --suffix-length=2 \
-              release-assets/OrderQuickReadSetup.exe \
-              release-assets/gitee/OrderQuickReadSetup.exe.part-
-          fi
-          sha256sum release-assets/OrderQuickReadSetup.exe \
-            | awk '{print $1 "  OrderQuickReadSetup.exe"}' \
-            > release-assets/gitee/OrderQuickReadSetup.exe.sha256
-          bash ./scripts/publish-gitee-release.sh release-assets/gitee/*
+          test -n "$DOWNLOAD_SSH_PRIVATE_KEY"
+          test -n "$DOWNLOAD_SSH_KNOWN_HOSTS"
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$DOWNLOAD_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DOWNLOAD_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Publish direct AUSMET download
+        shell: bash
+        env:
+          DOWNLOAD_SSH_HOST: download.ausmet.ai
+          DOWNLOAD_SSH_USER: orderflow-deploy
+          DOWNLOAD_TAG: build-${{ github.run_number }}
+          DOWNLOAD_BASE_URL: https://download.ausmet.ai/orderead
+          DOWNLOAD_REMOTE_ROOT: /srv/orderflow-download/public/orderead
+        run: bash ./scripts/publish-download-server.sh release-assets/OrderQuickReadSetup.exe

@@ -10,15 +10,18 @@ const packageJson = JSON.parse(readFileSync(path.join(repoRoot, "package.json"),
   repository?: { url?: string };
   build?: { compression?: string; electronLanguages?: string[]; files?: string[]; npmRebuild?: boolean };
 };
-const giteePublisher = readFileSync(path.join(repoRoot, "scripts/publish-gitee-release.sh"), "utf-8");
+const downloadPublisher = readFileSync(path.join(repoRoot, "scripts/publish-download-server.sh"), "utf-8");
 
 describe("GitHub Actions packaging workflow", () => {
   it("builds only the Windows Electron installer for now", () => {
+    expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("npm ci --no-audit --no-fund");
     expect(workflow).not.toMatch(/run: npm ci\s*$/m);
     expect(workflow).toContain("npm run electron:typecheck");
     expect(workflow).toContain("npm run electron:test");
     expect(workflow).toContain("npm run electron:build -- --win nsis --publish never");
+    expect(workflow).toContain("if: github.event_name != 'pull_request'");
     expect(workflow).not.toContain("npm run electron:build -- --mac");
     expect(workflow).not.toContain("build-macos");
     expect(workflow).not.toContain("macos-latest");
@@ -33,6 +36,7 @@ describe("GitHub Actions packaging workflow", () => {
   });
 
   it("publishes the direct Windows installer release asset", () => {
+    expect(workflow).toContain("permissions:\n      contents: write");
     expect(workflow).toContain("dist-electron-packages/OrderQuickReadSetup.exe");
     expect(workflow).toContain("release-assets/OrderQuickReadSetup.exe#OrderQuickReadSetup.exe");
     expect(workflow).toContain("OrderQuickReadSetup.exe.sha256#OrderQuickReadSetup.exe.sha256");
@@ -40,24 +44,19 @@ describe("GitHub Actions packaging workflow", () => {
     expect(workflow).not.toContain(".dmg");
   });
 
-  it("mirrors source and publishes verified Gitee update assets", () => {
-    expect(workflow).toContain("publish-gitee-release:");
-    expect(workflow).toContain("GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}");
-    expect(workflow).toContain("wei-dongyu_1_0/OrdeRead");
-    expect(workflow).toContain("git -c http.version=HTTP/1.1 push gitee HEAD:main --tags --force");
-    expect(workflow).toContain("timeout 180s");
-    expect(workflow).toContain("installer_size=$(wc -c < release-assets/OrderQuickReadSetup.exe");
-    expect(workflow).toContain("installer_size < 104857600");
-    expect(workflow).toContain("cp release-assets/OrderQuickReadSetup.exe release-assets/gitee/OrderQuickReadSetup.exe");
-    expect(workflow).toContain("split --bytes=4M");
-    expect(workflow).toContain("OrderQuickReadSetup.exe.sha256");
-    expect(workflow).toContain("scripts/publish-gitee-release.sh");
+  it("publishes verified updates to the AUSMET download server", () => {
+    expect(workflow).toContain("publish-download-server:");
+    expect(workflow).toContain("DOWNLOAD_SSH_PRIVATE_KEY: ${{ secrets.DOWNLOAD_SSH_PRIVATE_KEY }}");
+    expect(workflow).toContain("DOWNLOAD_SSH_KNOWN_HOSTS: ${{ secrets.DOWNLOAD_SSH_KNOWN_HOSTS }}");
+    expect(workflow).toContain("DOWNLOAD_BASE_URL: https://download.ausmet.ai/orderead");
+    expect(workflow).toContain("DOWNLOAD_REMOTE_ROOT: /srv/orderflow-download/public/orderead");
+    expect(workflow).toContain("scripts/publish-download-server.sh");
+    expect(workflow.toLowerCase()).not.toContain("gitee");
 
-    expect(giteePublisher).toContain("prerelease: true");
-    expect(giteePublisher).toContain("prerelease: false");
-    expect(giteePublisher).toContain("asset_size >= 104857600");
-    expect(giteePublisher).toContain('GITEE_UPLOAD_CONCURRENCY:-3');
-    expect(giteePublisher).toContain("upload_pids+set");
+    expect(downloadPublisher).toContain("/srv/orderflow-download/public/orderead");
+    expect(downloadPublisher).toContain("OrderQuickReadSetup.exe.sha256");
+    expect(downloadPublisher).toContain("latest.json.tmp");
+    expect(downloadPublisher).toContain("index.html.tmp");
   });
 
   it("uses the canonical repository and maximum installer compression", () => {

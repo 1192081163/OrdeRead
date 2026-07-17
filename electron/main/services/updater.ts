@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { access, appendFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -31,12 +31,11 @@ type ReleasePayload = {
 const packageJson = require("../../../package.json") as PackageMetadata;
 const OFFICIAL_GITHUB_REPOSITORY = githubRepositoryFromPackageJson(packageJson);
 
-export const GITEE_RELEASE_API_URL = "https://gitee.com/api/v5/repos/wei-dongyu_1_0/OrdeRead/releases/latest";
+export const DOWNLOAD_RELEASE_API_URL = "https://download.ausmet.ai/orderead/latest.json";
 export const GITHUB_RELEASE_API_URL = githubReleaseApiUrlFromPackageJson(packageJson);
-export const RELEASE_API_URLS = [GITEE_RELEASE_API_URL, GITHUB_RELEASE_API_URL] as const;
+export const RELEASE_API_URLS = [DOWNLOAD_RELEASE_API_URL, GITHUB_RELEASE_API_URL] as const;
 export const WINDOWS_ASSET_NAME = "OrderQuickReadSetup.exe";
 export const WINDOWS_CHECKSUM_ASSET_NAME = `${WINDOWS_ASSET_NAME}.sha256`;
-export const WINDOWS_PART_ASSET_PREFIX = `${WINDOWS_ASSET_NAME}.part-`;
 
 const MACOS_ARM64_ASSET_NAME = "OrderQuickRead-macos-arm64.dmg";
 const MACOS_X64_ASSET_NAME = "OrderQuickRead-macos-x64.dmg";
@@ -49,11 +48,11 @@ const USER_AGENT = `OrderQuickRead/${packageJson.version ?? "0.1.0"}`;
 const UPDATE_CHECK_TIMEOUT_MS = 5_000;
 const RELEASE_SOURCES = [
   {
-    name: "Gitee",
-    apiUrl: GITEE_RELEASE_API_URL,
+    name: "AUSMET Download",
+    apiUrl: DOWNLOAD_RELEASE_API_URL,
     accept: "application/json",
     releaseUrl: (tag: string) =>
-      `https://gitee.com/wei-dongyu_1_0/OrdeRead/releases/tag/${encodeURIComponent(tag)}`,
+      `https://download.ausmet.ai/orderead/releases/${encodeURIComponent(tag)}/`,
   },
   {
     name: "GitHub",
@@ -136,21 +135,6 @@ export function updateInfoFromReleasePayload(
     };
   }
 
-  const multipart = expectedName === WINDOWS_ASSET_NAME ? selectWindowsMultipart(assets) : null;
-  if (multipart) {
-    return {
-      tagName: latestTag,
-      releaseUrl,
-      assetName: WINDOWS_ASSET_NAME,
-      assetUrl: "",
-      assetParts: multipart.parts.map((part) => ({
-        assetName: stringValue(part.name),
-        assetUrl: stringValue(part.browser_download_url).trim(),
-      })),
-      checksumUrl: stringValue(multipart.checksum.browser_download_url).trim(),
-    };
-  }
-
   return {
     tagName: latestTag,
     releaseUrl,
@@ -217,14 +201,10 @@ export async function downloadUpdateAsset(
       : null;
     const hash = createHash("sha256");
 
-    if (update.assetUrl) {
-      assertOfficialDownloadUrl(update.assetUrl, update.assetName);
-      const content = await fetchUpdateBuffer(update.assetUrl, fetchImpl);
-      hash.update(content);
-      await writeFile(tempPath, content);
-    } else {
-      await downloadMultipartAsset(update, tempPath, hash, fetchImpl);
-    }
+    assertOfficialDownloadUrl(update.assetUrl, update.assetName);
+    const content = await fetchUpdateBuffer(update.assetUrl, fetchImpl);
+    hash.update(content);
+    await writeFile(tempPath, content);
 
     if (expectedChecksum && hash.digest("hex") !== expectedChecksum) {
       throw new Error("更新文件校验失败，已拒绝打开。");
@@ -249,27 +229,8 @@ function expectedAssetName(platformName: string, arch: string): string {
   return "";
 }
 
-function selectWindowsMultipart(assets: ReleaseAsset[]): { parts: ReleaseAsset[]; checksum: ReleaseAsset } | null {
-  const parts = assets
-    .filter((asset) => stringValue(asset.name).startsWith(WINDOWS_PART_ASSET_PREFIX))
-    .sort((left, right) => stringValue(left.name).localeCompare(stringValue(right.name)));
-  const checksum = assets.find(
-    (asset) =>
-      stringValue(asset.name) === WINDOWS_CHECKSUM_ASSET_NAME &&
-      Boolean(stringValue(asset.browser_download_url).trim()),
-  );
-  const partsAreComplete =
-    parts.length >= 2 &&
-    parts.every(
-      (part, index) =>
-        stringValue(part.name) === `${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}` &&
-        Boolean(stringValue(part.browser_download_url).trim()),
-    );
-  return checksum && partsAreComplete ? { parts, checksum } : null;
-}
-
 function hasDownloadableAsset(update: UpdateInfo): boolean {
-  return Boolean(update.assetUrl || (update.assetParts?.length && update.checksumUrl));
+  return Boolean(update.assetUrl);
 }
 
 function releaseIsCurrent(latestTag: string): boolean {
@@ -294,35 +255,6 @@ async function downloadExpectedChecksum(
     throw new Error("更新校验文件无效，已拒绝下载。");
   }
   return checksum;
-}
-
-async function downloadMultipartAsset(
-  update: UpdateInfo,
-  tempPath: string,
-  hash: ReturnType<typeof createHash>,
-  fetchImpl: typeof fetch,
-): Promise<void> {
-  const parts = update.assetParts ?? [];
-  if (!update.checksumUrl || parts.length < 2) {
-    throw new Error("更新分片不完整，请打开 Release 页面手动下载。");
-  }
-  const partsAreComplete = parts.every(
-    (part, index) => part.assetName === `${WINDOWS_PART_ASSET_PREFIX}${String(index).padStart(2, "0")}`,
-  );
-  if (!partsAreComplete) {
-    throw new Error("更新分片顺序不正确，已拒绝下载。");
-  }
-
-  for (const [index, part] of parts.entries()) {
-    assertOfficialDownloadUrl(part.assetUrl, part.assetName);
-    const content = await fetchUpdateBuffer(part.assetUrl, fetchImpl);
-    hash.update(content);
-    if (index === 0) {
-      await writeFile(tempPath, content);
-    } else {
-      await appendFile(tempPath, content);
-    }
-  }
 }
 
 async function fetchUpdateBuffer(url: string, fetchImpl: typeof fetch): Promise<Buffer> {
@@ -369,18 +301,14 @@ function assertOfficialDownloadUrl(value: string, expectedFilename: string): voi
     ) &&
     isReleaseDownload &&
     filename === expectedFilename;
-  const isOfficialGiteeRelease =
-    url.hostname.toLowerCase() === "gitee.com" &&
-    owner?.toLowerCase() === "wei-dongyu_1_0" &&
-    repository?.toLowerCase() === "orderead" &&
-    isReleaseDownload &&
+  const isOfficialDownloadServer =
+    url.hostname.toLowerCase() === "download.ausmet.ai" &&
+    segments.length === 4 &&
+    segments[0]?.toLowerCase() === "orderead" &&
+    segments[1]?.toLowerCase() === "releases" &&
+    /^[A-Za-z0-9._-]+$/.test(segments[2] ?? "") &&
     filename === expectedFilename;
-  const isOfficialGiteeApi =
-    url.hostname.toLowerCase() === "gitee.com" &&
-    /^\/api\/v5\/repos\/wei-dongyu_1_0\/OrdeRead\/releases\/\d+\/attach_files\/\d+\/download$/i.test(
-      url.pathname,
-    );
-  if (!isOfficialGitHub && !isOfficialGiteeRelease && !isOfficialGiteeApi) {
+  if (!isOfficialGitHub && !isOfficialDownloadServer) {
     throw new Error("更新文件来自非官方地址，已拒绝下载。");
   }
 }
